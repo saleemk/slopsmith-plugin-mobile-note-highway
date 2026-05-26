@@ -33,8 +33,7 @@
     // ═══════════════════════════════════════════════════════════════
     
     let _toolsExpanded = false;
-    let _expandButton = null;
-    let _collapseButton = null;
+    let _swipeIndicator = null;
     let _controlsObserver = null;
     let _sectionMapOriginalStyles = null;
     let _playerHudOriginalStyles = null;
@@ -134,6 +133,22 @@
             btn.style.padding = '0 16px';
         });
         
+        // Wrap seek button text ("5s") in spans for mobile hiding
+        Array.from(controls.querySelectorAll('button')).forEach(btn => {
+            const onclick = btn.getAttribute('onclick');
+            if (onclick && onclick.includes('seekBy(')) {
+                // Find text nodes that aren't already wrapped
+                Array.from(btn.childNodes).forEach(node => {
+                    if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+                        const span = document.createElement('span');
+                        span.className = 'seek-label';
+                        span.textContent = node.textContent;
+                        btn.replaceChild(span, node);
+                    }
+                });
+            }
+        });
+        
         // Hide seek button labels (5s text) on mobile to make them icon-only
         Array.from(controls.querySelectorAll('.seek-label')).forEach(label => {
             label.style.display = 'none';
@@ -150,6 +165,7 @@
         if (speedSlider && speedLabel && speedSlider.parentElement === controls && speedLabel.parentElement === controls) {
             // Create wrapper container
             const speedWrapper = document.createElement('div');
+            speedWrapper.id = 'mobile-speed-wrapper';  // Unique ID for later targeting
             speedWrapper.style.display = 'inline-flex';
             speedWrapper.style.flexDirection = 'column';
             speedWrapper.style.alignItems = 'center';
@@ -179,6 +195,134 @@
             speedSlider.style.height = '20px';
         }
         
+        // Stack mastery/difficulty slider: label + value on same line, slider below
+        const masterySlider = document.getElementById('mastery-slider');
+        const masteryLabel = document.getElementById('mastery-slider-label');
+        const masteryValue = document.getElementById('mastery-label');
+        if (masterySlider && masteryLabel && masteryValue && 
+            masterySlider.parentElement === controls && 
+            masteryLabel.parentElement === controls && 
+            masteryValue.parentElement === controls) {
+            
+            // Create column wrapper
+            const masteryWrapper = document.createElement('div');
+            masteryWrapper.style.display = 'inline-flex';
+            masteryWrapper.style.flexDirection = 'column';
+            masteryWrapper.style.alignItems = 'center';
+            masteryWrapper.style.gap = '2px';
+            masteryWrapper.style.height = '44px';
+            masteryWrapper.style.justifyContent = 'center';
+            
+            // Create horizontal row for label + value
+            const masteryLabelRow = document.createElement('div');
+            masteryLabelRow.style.display = 'flex';
+            masteryLabelRow.style.alignItems = 'center';
+            masteryLabelRow.style.justifyContent = 'center';
+            masteryLabelRow.style.gap = '4px';
+            masteryLabelRow.style.fontSize = '9px';
+            masteryLabelRow.style.lineHeight = '1';
+            masteryLabelRow.style.paddingBottom = '6px';
+            
+            // Insert wrapper before the label (label comes first in DOM)
+            masteryLabel.parentElement.insertBefore(masteryWrapper, masteryLabel);
+            
+            // Move elements into structure
+            masteryWrapper.appendChild(masteryLabelRow);
+            masteryLabelRow.appendChild(masteryLabel);
+            
+            // Add separator
+            const masterySeparator = document.createElement('span');
+            masterySeparator.textContent = '•';
+            masterySeparator.style.opacity = '0.5';
+            masteryLabelRow.appendChild(masterySeparator);
+            
+            masteryLabelRow.appendChild(masteryValue);
+            masteryWrapper.appendChild(masterySlider);
+            
+            // Style label
+            masteryLabel.textContent = 'Difficulty';
+            masteryLabel.style.fontSize = '9px';
+            masteryLabel.style.lineHeight = '1';
+            masteryLabel.style.margin = '0';
+            masteryLabel.style.padding = '0';
+            masteryLabel.style.width = 'auto';
+            
+            // Style value
+            masteryValue.style.fontSize = '9px';
+            masteryValue.style.lineHeight = '1';
+            masteryValue.style.margin = '0';
+            masteryValue.style.padding = '0';
+            masteryValue.style.width = 'auto';
+            
+            // Adjust slider styling
+            masterySlider.style.minHeight = 'auto';
+            masterySlider.style.height = '20px';
+        }
+        
+        // Stack A/V offset slider: label + value on same line, slider below
+        const avSlider = document.getElementById('player-av-offset-slider');
+        const avLabel = document.getElementById('player-av-offset-slider-label');
+        const avValue = document.getElementById('player-av-offset-label');
+        if (avSlider && avLabel && avValue && 
+            avSlider.parentElement === controls && 
+            avLabel.parentElement === controls && 
+            avValue.parentElement === controls) {
+            
+            // Create column wrapper
+            const avWrapper = document.createElement('div');
+            avWrapper.style.display = 'inline-flex';
+            avWrapper.style.flexDirection = 'column';
+            avWrapper.style.alignItems = 'center';
+            avWrapper.style.gap = '2px';
+            avWrapper.style.height = '44px';
+            avWrapper.style.justifyContent = 'center';
+            
+            // Create horizontal row for label + value
+            const avLabelRow = document.createElement('div');
+            avLabelRow.style.display = 'flex';
+            avLabelRow.style.alignItems = 'center';
+            avLabelRow.style.justifyContent = 'center';
+            avLabelRow.style.gap = '4px';
+            avLabelRow.style.fontSize = '9px';
+            avLabelRow.style.lineHeight = '1';
+            avLabelRow.style.paddingBottom = '6px';
+            
+            // Insert wrapper before the label (label comes first in DOM)
+            avLabel.parentElement.insertBefore(avWrapper, avLabel);
+            
+            // Move elements into structure
+            avWrapper.appendChild(avLabelRow);
+            avLabelRow.appendChild(avLabel);
+            
+            // Add separator
+            const avSeparator = document.createElement('span');
+            avSeparator.textContent = '•';
+            avSeparator.style.opacity = '0.5';
+            avLabelRow.appendChild(avSeparator);
+            
+            avLabelRow.appendChild(avValue);
+            avWrapper.appendChild(avSlider);
+            
+            // Style label
+            avLabel.textContent = 'Offset';
+            avLabel.style.fontSize = '9px';
+            avLabel.style.lineHeight = '1';
+            avLabel.style.margin = '0';
+            avLabel.style.padding = '0';
+            avLabel.style.width = 'auto';
+            
+            // Style value
+            avValue.style.fontSize = '9px';
+            avValue.style.lineHeight = '1';
+            avValue.style.margin = '0';
+            avValue.style.padding = '0';
+            avValue.style.width = 'auto';
+            
+            // Adjust slider styling
+            avSlider.style.minHeight = 'auto';
+            avSlider.style.height = '20px';
+        }
+        
         // Hide all non-essential controls (after styling, so display: 'none' wins)
         let hiddenCount = 0;
         Array.from(controls.children).forEach(el => {
@@ -201,66 +345,44 @@
         // Pass 3: 600ms - catches slow plugins
         setTimeout(() => reclassifyAllControls(), 600);
         
-        // Create expand button (⌃)
-        if (!_expandButton) {
-            _expandButton = document.createElement('button');
-            _expandButton.id = 'mobile-expand-btn';
-            _expandButton.textContent = '⌃';
-            _expandButton.title = 'Show Tools';
-            _expandButton.style.cssText = `
-                order: 997;
-                margin-left: auto;
-                background: rgba(255, 255, 255, 0.1);
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 8px 12px;
-                font-size: 18px;
-                min-width: 44px;
-                min-height: 44px;
-                cursor: pointer;
+        // Create minimalist chevron indicator (absolutely positioned, always centered at top)
+        if (!_swipeIndicator) {
+            _swipeIndicator = document.createElement('div');
+            _swipeIndicator.id = 'mobile-swipe-indicator';
+            _swipeIndicator.textContent = '⌃';
+            _swipeIndicator.style.cssText = `
+                position: absolute;
+                top: 4px;
+                left: 50%;
+                transform: translateX(-50%);
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                font-size: 20px;
+                color: rgba(255, 255, 255, 0.35);
+                pointer-events: none;
+                user-select: none;
+                z-index: 10;
             `;
-            _expandButton.addEventListener('click', () => toggleAdvancedControls(true));
-            controls.appendChild(_expandButton);
-            console.log('[mobile_ui] ✅ Expand button created');
+            
+            controls.appendChild(_swipeIndicator);
+            console.log('[mobile_ui] ✅ Minimalist chevron indicator created');
         }
+        
+        // Ensure controls container has position: relative for absolute positioning
+        controls.style.position = 'relative';
 
-        // Create collapse button (⌄)
-        if (!_collapseButton) {
-            _collapseButton = document.createElement('button');
-            _collapseButton.id = 'mobile-collapse-btn';
-            _collapseButton.textContent = '⌄';
-            _collapseButton.title = 'Hide Tools';
-            _collapseButton.style.cssText = `
-                order: 997;
-                margin-left: auto;
-                background: rgba(255, 255, 255, 0.1);
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 8px 12px;
-                font-size: 18px;
-                min-width: 44px;
-                min-height: 44px;
-                cursor: pointer;
-                display: none;
-                align-items: center;
-                justify-content: center;
-            `;
-            _collapseButton.addEventListener('click', () => toggleAdvancedControls(false));
-            controls.appendChild(_collapseButton);
-            console.log('[mobile_ui] ✅ Collapse button created');
-        }
-
-        // Set button ordering for proper layout
-        const speedWrapper = controls.querySelector('div[style*="flex-direction: column"]');
+        // Set button ordering for proper layout.
+        // We push the speed wrapper to the right side of the bar by giving it
+        // `marginLeft: auto` (works on any viewport width). The close button's
+        // `ml-auto` Tailwind class is stripped below so only one element claims
+        // the free space. The wrapper is naturally hidden in expanded mode by
+        // wrapping flex behavior — no extra toggle needed.
+        const speedWrapper = document.getElementById('mobile-speed-wrapper');
         if (speedWrapper) {
             speedWrapper.style.order = '998';
-            speedWrapper.style.marginLeft = '8px';
-            console.log('[mobile_ui] ✅ Speed wrapper moved to order 998');
+            speedWrapper.style.marginLeft = _toolsExpanded ? '' : 'auto';
+            speedWrapper.style.marginRight = '';
         }
         
         // Find and position close button at far right
@@ -270,6 +392,13 @@
         });
         if (closeButton) {
             closeButton.style.order = '999';
+            // Strip Tailwind's `ml-auto` (baked into the HTML) — otherwise it
+            // competes with our flex spacer for free space, splitting it 50/50 and
+            // parking the speed wrapper in the middle of the bar. Removing the
+            // class is more durable than inline override (survives any later
+            // restyling pass that might clear inline marginLeft).
+            closeButton.classList.remove('ml-auto');
+            closeButton.style.marginLeft = '0';
             console.log('[mobile_ui] ✅ Close button positioned at order 999');
         }
     }
@@ -284,8 +413,8 @@
         
         let fixedCount = 0;
         Array.from(controls.children).forEach(el => {
-            // Skip our expand/collapse buttons
-            if (el.id === 'mobile-expand-btn' || el.id === 'mobile-collapse-btn') return;
+            // Skip our injected helpers
+            if (el.id === 'mobile-swipe-indicator') return;
             
             if (isEssentialControl(el)) {
                 // Essential controls - ensure visible and no hide class
@@ -313,6 +442,8 @@
         });
         if (closeButton && closeButton.style.order !== '999') {
             closeButton.style.order = '999';
+            closeButton.classList.remove('ml-auto');
+            closeButton.style.marginLeft = '0';
         }
         
         if (fixedCount > 0) {
@@ -336,8 +467,8 @@
                         // Only process element nodes (not text nodes)
                         if (node.nodeType !== Node.ELEMENT_NODE) return;
                         
-                        // Skip if it's our expand/collapse buttons
-                        if (node.id === 'mobile-expand-btn' || node.id === 'mobile-collapse-btn') return;
+                        // Skip if it's our swipe indicator
+                        if (node.id === 'mobile-swipe-indicator') return;
                         
                         // If it's not essential, hide it
                         if (!isEssentialControl(node)) {
@@ -379,23 +510,28 @@
             _toolsExpanded = !_toolsExpanded;
         }
         
-        // Toggle button visibility
-        if (_expandButton && _collapseButton) {
+        // Update chevron indicator
+        if (_swipeIndicator) {
             if (_toolsExpanded) {
-                _expandButton.style.display = 'none';
-                _collapseButton.style.display = 'flex';
+                _swipeIndicator.textContent = '⌄';
             } else {
-                _expandButton.style.display = 'flex';
-                _collapseButton.style.display = 'none';
+                _swipeIndicator.textContent = '⌃';
             }
+        }
+
+        // Toggle the speed wrapper's auto margin: pushed right in collapsed mode,
+        // natural position in expanded mode (so it sits with the other sliders).
+        const speedWrapper = document.getElementById('mobile-speed-wrapper');
+        if (speedWrapper) {
+            speedWrapper.style.marginLeft = _toolsExpanded ? '' : 'auto';
         }
         
         // Re-scan ALL controls to catch any late-injected buttons
         const controls = document.getElementById('player-controls');
         if (controls) {
             Array.from(controls.children).forEach(el => {
-                // Skip our expand/collapse buttons
-                if (el.id === 'mobile-expand-btn' || el.id === 'mobile-collapse-btn') return;
+                // Skip our injected helpers
+                if (el.id === 'mobile-swipe-indicator') return;
                 
                 if (isEssentialControl(el)) {
                     // Essential controls - always visible, ensure no hide class
@@ -417,6 +553,8 @@
             });
             if (closeButton) {
                 closeButton.style.order = '999';
+                closeButton.classList.remove('ml-auto');
+                closeButton.style.marginLeft = '0';
             }
         }
         
@@ -436,16 +574,10 @@
         // Stop observing
         stopControlsObserver();
         
-        // Remove expand button
-        if (_expandButton && _expandButton.parentElement) {
-            _expandButton.remove();
-            _expandButton = null;
-        }
-        
-        // Remove collapse button
-        if (_collapseButton && _collapseButton.parentElement) {
-            _collapseButton.remove();
-            _collapseButton = null;
+        // Remove swipe indicator
+        if (_swipeIndicator && _swipeIndicator.parentElement) {
+            _swipeIndicator.remove();
+            _swipeIndicator = null;
         }
         
         // Get controls element
