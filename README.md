@@ -11,7 +11,7 @@ This plugin is external and not bundled with Slopsmith. Install it by mounting i
 1. **Clone the plugin** next to your slopsmith directory:
    ```bash
    cd /path/to/your/repos
-   git clone https://github.com/YOUR_USERNAME/slopsmith-plugin-mobile-ui.git
+   git clone https://github.com/saleemk/slopsmith-plugin-mobile-ui.git
    ```
 
 2. **Add mount to docker-compose.yml**:
