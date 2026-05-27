@@ -30,7 +30,7 @@
         return window.innerWidth >= 600 ? 'tablet' : 'phone';
     }
     
-    const DEVICE = detectDevice();
+    let DEVICE = detectDevice();
     
     /**
      * Per-device styling and behavior config.
@@ -62,7 +62,7 @@
             swipeMaxDurationMs: 500,
             tapMaxDurationMs: 300,
             tapMaxMovementPx: 10,
-            doubleTapWindowMs: 500,
+            doubleTapWindowMs: 250,
             pullToRefreshGuardPx: 10,
         },
         tablet: {
@@ -89,13 +89,13 @@
             swipeMaxDurationMs: 500,
             tapMaxDurationMs: 300,
             tapMaxMovementPx: 10,
-            doubleTapWindowMs: 500,
+            doubleTapWindowMs: 250,
             pullToRefreshGuardPx: 10,
         },
     };
     
-    const CFG = CONFIG[DEVICE] || CONFIG.phone;
-    const IS_TABLET = DEVICE === 'tablet';
+    let CFG = CONFIG[DEVICE] || CONFIG.phone;
+    let IS_TABLET = DEVICE === 'tablet';
     
     /**
      * Plugin activates on phone AND tablet; not on desktop.
@@ -132,6 +132,119 @@
     let _controlsGestureStartY = 0;
     let _controlsGestureStartTime = 0;
     let _controlsGestureActive = false;
+    
+    // Pending timeouts (for cleanup on song change / screen exit)
+    let _pendingTimeouts = [];
+    let _pendingDoubleTapTimeout = null;
+    
+    // Resize handling
+    let _resizeTimeout = null;
+    
+    // Observer batching (requestAnimationFrame)
+    let _pendingObserverUpdate = false;
+    
+    // ═══════════════════════════════════════════════════════════════
+    // CSS Classes Injection
+    // ═══════════════════════════════════════════════════════════════
+    
+    /**
+     * Inject CSS classes for mobile UI to avoid inline style thrashing
+     */
+    function injectMobileStyles() {
+        if (document.getElementById('mobile-ui-styles')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'mobile-ui-styles';
+        style.textContent = `
+            /* Mobile UI Plugin Styles */
+            .mobile-button {
+                height: ${CFG.buttonHeight}px !important;
+                min-width: ${CFG.buttonHeight}px !important;
+                padding: 0 ${CFG.buttonPaddingX}px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            /* Higher specificity: must come AFTER .mobile-button to override */
+            .mobile-button.mobile-hidden { display: none !important; }
+            .mobile-hidden { display: none !important; }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    /**
+     * Update CSS variables when device type changes
+     */
+    function updateMobileStyles() {
+        const style = document.getElementById('mobile-ui-styles');
+        if (!style) return;
+        
+        style.textContent = `
+            /* Mobile UI Plugin Styles */
+            .mobile-button {
+                height: ${CFG.buttonHeight}px !important;
+                min-width: ${CFG.buttonHeight}px !important;
+                padding: 0 ${CFG.buttonPaddingX}px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+            /* Higher specificity: must come AFTER .mobile-button to override */
+            .mobile-button.mobile-hidden { display: none !important; }
+            .mobile-hidden { display: none !important; }
+        `;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // Device Resize Handling
+    // ═══════════════════════════════════════════════════════════════
+    
+    /**
+     * Handle viewport resize (orientation change, browser resize)
+     * Re-detects device type and re-enhances if needed
+     */
+    function handleResize() {
+        const newDevice = detectDevice();
+        if (newDevice !== DEVICE) {
+            console.log('[mobile_ui] Device changed:', DEVICE, '->', newDevice);
+            DEVICE = newDevice;
+            CFG = CONFIG[DEVICE] || CONFIG.phone;
+            IS_TABLET = DEVICE === 'tablet';
+            updateMobileStyles();
+            
+            // Re-enhance if on player screen
+            const currentScreen = window.slopsmith?.getCurrentScreen?.();
+            if (currentScreen === 'player') {
+                scheduleEnhancement(enhancePlayerControls, 100);
+            }
+        }
+    }
+    
+    /**
+     * Setup resize listener with debouncing
+     */
+    function setupResizeListener() {
+        window.addEventListener('resize', () => {
+            if (_resizeTimeout) {
+                clearTimeout(_resizeTimeout);
+            }
+            _resizeTimeout = setTimeout(handleResize, 300);
+        });
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // Haptic Feedback
+    // ═══════════════════════════════════════════════════════════════
+    
+    /**
+     * Trigger haptic feedback (vibration) if available
+     * @param {number} duration - Duration in milliseconds
+     */
+    function triggerHaptic(duration) {
+        if (navigator.vibrate && typeof navigator.vibrate === 'function') {
+            navigator.vibrate(duration);
+        }
+    }
     
     // ═══════════════════════════════════════════════════════════════
     // Essential Control Detection
@@ -182,7 +295,11 @@
     function hideControl(el) {
         if (!el.classList.contains('mobile-hide-advanced')) {
             el.classList.add('mobile-hide-advanced');
-            el.style.display = _toolsExpanded ? '' : 'none';
+            if (_toolsExpanded) {
+                el.classList.remove('mobile-hidden');
+            } else {
+                el.classList.add('mobile-hidden');
+            }
         }
     }
     
@@ -587,14 +704,19 @@
                 // Essential controls - ensure visible and no hide class
                 if (el.classList.contains('mobile-hide-advanced')) {
                     el.classList.remove('mobile-hide-advanced');
-                    el.style.display = '';  // Reset to default
+                    el.classList.remove('mobile-hidden');
                     fixedCount++;
                 }
             } else {
-                // Non-essential controls - FORCE hidden state
-                const wasFixed = !el.classList.contains('mobile-hide-advanced') || el.style.display !== 'none';
+                // Non-essential controls - mark with hide class and apply visibility based on expanded state
+                const wasFixed = !el.classList.contains('mobile-hide-advanced');
                 el.classList.add('mobile-hide-advanced');
-                el.style.display = 'none';  // Force hidden since _toolsExpanded is false initially
+                // Use CSS class instead of inline style
+                if (_toolsExpanded) {
+                    el.classList.remove('mobile-hidden');
+                } else {
+                    el.classList.add('mobile-hidden');
+                }
                 if (wasFixed) {
                     //console.log('[mobile_ui] Fixing control:', el.textContent || el.id || 'unknown');
                     fixedCount++;
@@ -627,40 +749,68 @@
         stopControlsObserver();
         
         _controlsObserver = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
-                if (mutation.type === 'childList') {
-                    // Check each added node
-                    mutation.addedNodes.forEach(node => {
-                        // Only process element nodes (not text nodes)
-                        if (node.nodeType !== Node.ELEMENT_NODE) return;
+            // Batch updates with requestAnimationFrame
+            if (_pendingObserverUpdate) return;
+            _pendingObserverUpdate = true;
+            
+            requestAnimationFrame(() => {
+                _pendingObserverUpdate = false;
+                
+                for (const mutation of mutations) {
+                    if (mutation.type === 'childList') {
+                        // Check each added node
+                        mutation.addedNodes.forEach(node => {
+                            // Only process element nodes (not text nodes)
+                            if (node.nodeType !== Node.ELEMENT_NODE) return;
+                            
+                            // Skip if it's our swipe indicator
+                            if (node.id === 'mobile-swipe-indicator') return;
+                            if (node.id === 'mobile-chevron-spacer') return;
+                            
+                            // Apply touch-friendly styling to buttons
+                            if (node.tagName === 'BUTTON') {
+                                node.classList.add('mobile-button');
+                            }
+                            
+                            // If it's not essential, hide it
+                            if (!isEssentialControl(node)) {
+                                hideControl(node);
+                            }
+                        });
+                    } else if (mutation.type === 'attributes') {
+                        // Re-apply mobile classes when className is replaced by core
+                        // (e.g., loop buttons have their classes wiped when activated)
+                        const target = mutation.target;
                         
-                        // Skip if it's our swipe indicator
-                        if (node.id === 'mobile-swipe-indicator') return;
-                        if (node.id === 'mobile-chevron-spacer') return;
+                        // Skip our injected helpers
+                        if (target.id === 'mobile-swipe-indicator') return;
+                        if (target.id === 'mobile-chevron-spacer') return;
                         
-                        // Apply touch-friendly styling to buttons
-                        if (node.tagName === 'BUTTON') {
-                            node.style.setProperty('height', CFG.buttonHeight + 'px', 'important');
-                            node.style.setProperty('min-width', CFG.buttonHeight + 'px', 'important');
-                            node.style.setProperty('padding', '0 ' + CFG.buttonPaddingX + 'px', 'important');
-                            node.style.display = 'inline-flex';
-                            node.style.alignItems = 'center';
-                            node.style.justifyContent = 'center';
+                        if (target.nodeType === Node.ELEMENT_NODE && !isEssentialControl(target)) {
+                            // If mobile-hide-advanced class was wiped, re-add it
+                            if (!target.classList.contains('mobile-hide-advanced')) {
+                                target.classList.add('mobile-hide-advanced');
+                            }
+                            // Apply mobile-button class to buttons
+                            if (target.tagName === 'BUTTON' && !target.classList.contains('mobile-button')) {
+                                target.classList.add('mobile-button');
+                            }
+                            // Re-enforce collapsed state if needed
+                            if (!_toolsExpanded && !target.classList.contains('mobile-hidden')) {
+                                target.classList.add('mobile-hidden');
+                            }
                         }
-                        
-                        // If it's not essential, hide it
-                        if (!isEssentialControl(node)) {
-                            hideControl(node);
-                        }
-                    });
+                    }
                 }
-            }
+            });
         });
         
         // Start observing
         _controlsObserver.observe(controls, {
-            childList: true,  // Watch for children being added/removed
-            subtree: false    // Don't watch nested changes
+            childList: true,      // Watch for children being added/removed
+            subtree: true,        // Watch nested changes (children's attributes)
+            attributes: true,     // Watch for attribute changes (className, style, etc.)
+            attributeFilter: ['class', 'style']  // Only watch class and style changes
         });
         
         //console.log('[mobile_ui] Controls observer started');
@@ -769,7 +919,11 @@
                         el.classList.add('mobile-hide-advanced');
                         //console.log('[mobile_ui] Late classification:', el.textContent || el.id || 'unknown');
                     }
-                    el.style.display = _toolsExpanded ? '' : 'none';
+                    if (_toolsExpanded) {
+                        el.classList.remove('mobile-hidden');
+                    } else {
+                        el.classList.add('mobile-hidden');
+                    }
                 }
             });
             
@@ -791,10 +945,30 @@
     // ═══════════════════════════════════════════════════════════════
     
     /**
+     * Schedule an enhancement with automatic cleanup tracking
+     */
+    function scheduleEnhancement(fn, delay) {
+        const id = setTimeout(() => {
+            _pendingTimeouts = _pendingTimeouts.filter(tid => tid !== id);
+            fn();
+        }, delay);
+        _pendingTimeouts.push(id);
+    }
+    
+    /**
      * Remove mobile UI enhancements
      */
     function cleanup() {
         //console.log('[mobile_ui] ❗ Cleanup called');
+        
+        // Cancel all pending timeouts
+        _pendingTimeouts.forEach(clearTimeout);
+        _pendingTimeouts = [];
+        
+        if (_pendingDoubleTapTimeout) {
+            clearTimeout(_pendingDoubleTapTimeout);
+            _pendingDoubleTapTimeout = null;
+        }
         
         // Stop observing
         stopControlsObserver();
@@ -1194,17 +1368,30 @@
             const timeSinceLastTap = now - _lastTapTime;
             
             if (timeSinceLastTap < CFG.doubleTapWindowMs && timeSinceLastTap > 0) {
-                // Double tap: Set loop markers
-                _lastTapTime = 0; // Reset to prevent triple-tap
+                // Second tap detected: cancel timeout, reverse first tap, execute double-tap
+                if (_pendingDoubleTapTimeout) {
+                    clearTimeout(_pendingDoubleTapTimeout);
+                    _pendingDoubleTapTimeout = null;
+                }
+                _lastTapTime = 0;
+                
+                // Clear any existing feedback from the first tap
+                const existing = document.getElementById('gesture-feedback');
+                if (existing) existing.remove();
+                
+                // Reverse the single tap (toggle play/pause back) - silently, no feedback
+                handleSingleTap(true);
+                // Then execute the double-tap action
                 handleDoubleTap();
             } else {
-                // First tap: Play/Pause (but wait to see if second tap comes)
+                // First tap: execute immediately
                 _lastTapTime = now;
-                setTimeout(() => {
-                    if (_lastTapTime === now) {
-                        // No second tap came within the window
-                        handleSingleTap();
-                    }
+                handleSingleTap();
+                
+                // Start double-tap window timer
+                _pendingDoubleTapTimeout = setTimeout(() => {
+                    _lastTapTime = 0;
+                    _pendingDoubleTapTimeout = null;
                 }, CFG.doubleTapWindowMs);
             }
             return;
@@ -1226,17 +1413,34 @@
     
     /**
      * Handle single tap gesture (Play/Pause)
+     * @param {boolean} silent - If true, suppress feedback message
      */
-    function handleSingleTap() {
+    function handleSingleTap(silent = false) {
         const audio = document.getElementById('audio');
         if (!audio) return;
         
         if (audio.paused) {
             audio.play();
-            showGestureFeedback('▶ Play');
+            if (!silent) showGestureFeedback('Play');
         } else {
             audio.pause();
-            showGestureFeedback('⏸ Pause');
+            if (!silent) showGestureFeedback('Pause');
+        }
+    }
+    
+    /**
+     * Sync loop marker state with actual loop values from app
+     */
+    function syncLoopMarkerState() {
+        const loop = window.slopsmith?.getLoop?.();
+        if (!loop) return;
+        
+        if (loop.loopA !== null && loop.loopB !== null) {
+            _loopMarkerState = 'b-set';
+        } else if (loop.loopA !== null) {
+            _loopMarkerState = 'a-set';
+        } else {
+            _loopMarkerState = 'ready';
         }
     }
     
@@ -1245,26 +1449,32 @@
      * Cycles through: set A → set B → clear
      */
     function handleDoubleTap() {
+        // Sync state before acting (in case loop was set externally)
+        syncLoopMarkerState();
+        
         if (_loopMarkerState === 'ready') {
             // Set loop start (A)
-            if (typeof setLoopStart === 'function') {
-                setLoopStart();
+            if (typeof window.setLoopStart === 'function') {
+                window.setLoopStart();
                 _loopMarkerState = 'a-set';
-                showGestureFeedback('🅰️ Loop Start');
+                triggerHaptic(10);  // Short buzz for A
+                showGestureFeedback('Loop Start (A)');
             }
         } else if (_loopMarkerState === 'a-set') {
             // Set loop end (B)
-            if (typeof setLoopEnd === 'function') {
-                setLoopEnd();
+            if (typeof window.setLoopEnd === 'function') {
+                window.setLoopEnd();
                 _loopMarkerState = 'b-set';
-                showGestureFeedback('🅱️ Loop End');
+                triggerHaptic(20);  // Medium buzz for B
+                showGestureFeedback('Loop End (B)');
             }
         } else {
             // Clear loop and reset
-            if (typeof clearLoop === 'function') {
-                clearLoop();
+            if (typeof window.clearLoop === 'function') {
+                window.clearLoop();
                 _loopMarkerState = 'ready';
-                showGestureFeedback('✕ Loop Cleared');
+                triggerHaptic(30);  // Longer buzz for clear
+                showGestureFeedback('Loop Cleared');
             }
         }
     }
@@ -1292,7 +1502,7 @@
         
         audio.currentTime = newTime;
         
-        showGestureFeedback(direction === 'right' ? '⏩ +5s' : '⏪ -5s');
+        showGestureFeedback(direction === 'right' ? '+5s' : '-5s');
         
         //console.log('[mobile_ui] ✓ Seeked to', Math.floor(newTime), 's');
     }
@@ -1313,15 +1523,15 @@
         feedback.textContent = text;
         feedback.style.cssText = `
             position: fixed;
-            top: 50%;
+            bottom: ${CFG.buttonHeight + 20}px;
             left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.4);
             color: white;
-            padding: 16px 24px;
-            border-radius: 12px;
-            font-size: 18px;
-            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
             z-index: 9999;
             pointer-events: none;
             animation: gesture-fade 0.6s ease-out forwards;
@@ -1333,10 +1543,10 @@
             style.id = 'gesture-feedback-style';
             style.textContent = `
                 @keyframes gesture-fade {
-                    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-                    20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-                    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-                    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+                    0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+                    20% { opacity: 1; transform: translateX(-50%) translateY(0); }
+                    80% { opacity: 1; transform: translateX(-50%) translateY(0); }
+                    100% { opacity: 0; transform: translateX(-50%) translateY(-5px); }
                 }
             `;
             document.head.appendChild(style);
@@ -1465,6 +1675,12 @@
         
         console.log('[mobile_ui] Activating on device:', DEVICE);
         
+        // Inject CSS classes
+        injectMobileStyles();
+        
+        // Setup resize listener
+        setupResizeListener();
+        
         // Listen for screen changes
         window.slopsmith.on('screen:changed', (e) => {
             const screenId = e.detail.id || e.detail.screen;
@@ -1472,19 +1688,20 @@
             
             if (screenId === 'player') {
                 //console.log('[mobile_ui] Player screen detected - enhancing controls');
-                // Give the player screen time to render
-                setTimeout(enhancePlayerControls, 100);
-                // Section map might already exist or appear soon
-                setTimeout(enhanceSectionMap, 200);
-                // Adjust HUD position
-                setTimeout(adjustPlayerHud, 200);
-                // Enable gesture controls
-                //console.log('[mobile_ui] Scheduling enableHighwayGestures in 300ms');
-                setTimeout(enableHighwayGestures, 300);
-                // Enable controls swipe gestures (after controls are enhanced)
-                setTimeout(enableControlsGestures, 150);
-                // Start observing 3D highway overlay (needs more time to load)
-                setTimeout(startHighway3dObserver, 500);
+                // Give the player screen time to render (100ms)
+                scheduleEnhancement(enhancePlayerControls, 100);
+                // Section map might already exist or appear soon (200ms)
+                scheduleEnhancement(enhanceSectionMap, 200);
+                // Adjust HUD position (200ms)
+                scheduleEnhancement(adjustPlayerHud, 200);
+                // Enable gesture controls (300ms)
+                scheduleEnhancement(enableHighwayGestures, 300);
+                // Enable controls swipe gestures (150ms - after controls are enhanced)
+                scheduleEnhancement(enableControlsGestures, 150);
+                // Start observing 3D highway overlay (500ms - needs more time to load)
+                scheduleEnhancement(startHighway3dObserver, 500);
+                // Sync loop state
+                scheduleEnhancement(syncLoopMarkerState, 100);
             } else {
                 // Clean up when leaving player
                 //console.log('[mobile_ui] 🚪 Leaving player screen (now on:', screenId, ')');
@@ -1501,26 +1718,32 @@
         const origPlaySong = window.playSong;
         if (origPlaySong) {
             window.playSong = async function(filename, arrangement) {
+                // Cancel any pending enhancements from previous song
+                _pendingTimeouts.forEach(clearTimeout);
+                _pendingTimeouts = [];
+                
                 await origPlaySong(filename, arrangement);
                 //console.log('[mobile_ui] playSong completed - re-enhancing');
-                // Reset loop marker state for new song
-                _loopMarkerState = 'ready';
-                // Section map gets created after playSong, give it time
-                setTimeout(enhanceSectionMap, 300);
-                // Adjust HUD position
-                setTimeout(adjustPlayerHud, 300);
-                // Re-enable gestures (highway canvas recreates on song change)
-                setTimeout(enableHighwayGestures, 400);
-                // Re-enable controls gestures
-                setTimeout(enableControlsGestures, 150);
-                // Re-observe 3D highway overlay (it recreates on song change)
-                setTimeout(startHighway3dObserver, 600);
+                
+                // Sync loop marker state from actual loop values
+                syncLoopMarkerState();
+                
+                // Section map gets created after playSong, give it time (300ms for section_map plugin to render)
+                scheduleEnhancement(enhanceSectionMap, 300);
+                // Adjust HUD position (same timing as section map)
+                scheduleEnhancement(adjustPlayerHud, 300);
+                // Re-enable gestures (400ms - highway canvas recreates after WebSocket ready)
+                scheduleEnhancement(enableHighwayGestures, 400);
+                // Re-enable controls gestures (150ms - controls already exist)
+                scheduleEnhancement(enableControlsGestures, 150);
+                // Re-observe 3D highway overlay (600ms - it recreates on song change, needs time)
+                scheduleEnhancement(startHighway3dObserver, 600);
             };
         }
         
         // Hook into loop functions to sync marker state when user clicks UI buttons
         const origSetLoopStart = window.setLoopStart;
-        if (origSetLoopStart) {
+        if (typeof origSetLoopStart === 'function') {
             window.setLoopStart = function() {
                 origSetLoopStart();
                 _loopMarkerState = 'a-set';
@@ -1528,7 +1751,7 @@
         }
         
         const origSetLoopEnd = window.setLoopEnd;
-        if (origSetLoopEnd) {
+        if (typeof origSetLoopEnd === 'function') {
             window.setLoopEnd = function() {
                 origSetLoopEnd();
                 _loopMarkerState = 'b-set';
@@ -1536,7 +1759,7 @@
         }
         
         const origClearLoop = window.clearLoop;
-        if (origClearLoop) {
+        if (typeof origClearLoop === 'function') {
             window.clearLoop = function() {
                 origClearLoop();
                 _loopMarkerState = 'ready';
@@ -1548,12 +1771,14 @@
        // console.log('[mobile_ui] 🎬 Init check - current screen:', currentScreen);
         if (currentScreen === 'player') {
             //console.log('[mobile_ui] Already on player screen - enhancing');
-            setTimeout(enhancePlayerControls, 100);
-            setTimeout(enhanceSectionMap, 200);
-            setTimeout(adjustPlayerHud, 200);
-            setTimeout(enableHighwayGestures, 300);
-            setTimeout(enableControlsGestures, 150);
-            setTimeout(startHighway3dObserver, 500);
+            scheduleEnhancement(enhancePlayerControls, 100);
+            scheduleEnhancement(enhanceSectionMap, 200);
+            scheduleEnhancement(adjustPlayerHud, 200);
+            scheduleEnhancement(enableHighwayGestures, 300);
+            scheduleEnhancement(enableControlsGestures, 150);
+            scheduleEnhancement(startHighway3dObserver, 500);
+            // Sync loop state on init
+            scheduleEnhancement(syncLoopMarkerState, 100);
         } else {
             console.log('[mobile_ui] Not on player screen, waiting for screen:changed event');
         }
