@@ -1,164 +1,99 @@
-# Mobile UI Plugin
+# Mobile UI
 
-Enhances Slopsmith's player interface for mobile devices with touch-optimized controls, drag-friendly section map, and responsive layout.
-
-## Installation
-
-This plugin is external and not bundled with Slopsmith. Install it by mounting into your Docker container.
-
-### Docker Installation (Recommended)
-
-1. **Clone the plugin** next to your slopsmith directory:
-   ```bash
-   cd /path/to/your/repos
-   git clone https://github.com/saleemk/slopsmith-plugin-mobile-ui.git
-   ```
-
-2. **Add mount to docker-compose.yml**:
-   ```yaml
-   services:
-     web:
-       volumes:
-         - ./plugins:/app/plugins
-         - ../slopsmith-plugin-mobile-ui:/app/plugins/mobile_ui  # Add this line
-   ```
-
-3. **Restart container**:
-   ```bash
-   docker compose restart
-   ```
-
-### Manual Installation (Direct to plugins/)
-
-If you're running Slopsmith without Docker:
-```bash
-cd slopsmith/plugins/
-git clone https://github.com/YOUR_USERNAME/slopsmith-plugin-mobile-ui.git mobile_ui
-# Restart Slopsmith
-```
-
-### Verify Installation
-
-Check the logs for: `Registered plugin 'mobile_ui' (Mobile UI)`
+A mobile interface plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that optimizes the player for touch devices with collapsible controls, intuitive gestures, and device-adaptive layouts.
 
 ## Features
 
-- **Collapsible Controls** - Advanced controls hidden by default, revealed via swipe gesture
-- **Gesture Controls** - Intuitive touch gestures for common actions:
-  - **Swipe up** on controls bar → expand advanced controls
-  - **Swipe down** on controls bar → collapse advanced controls
-  - **Swipe left** on highway → seek backward 5 seconds
-  - **Swipe right** on highway → seek forward 5 seconds
-  - **Double tap** on highway → play/pause
-- **Visual Indicator** - Animated chevron hints at swipe gesture:
-  - **⌃ Upward chevron** when controls are collapsed (swipe up to expand)
-  - **⌄ Downward chevron** when controls are expanded (swipe down to collapse)
-- **Touch-Friendly Targets** - All buttons enlarged to 44px minimum (Apple Human Interface Guidelines)
-- **Drag-Friendly Section Map** - Touch and drag to scrub through the song with live tooltip showing section name and time
-- **Mobile-Only Activation** - Desktop experience remains unchanged
-- **Clean Lifecycle** - Automatically activates on player screen, cleans up on exit
-- **Plugin-Aware** - Automatically catches and hides plugin buttons (fretboard, tones, detect, step mode, etc.) as they load
-- **Layout Optimizations** - Section map, player HUD, and 3D highway overlay positioned to avoid overlap
+- **Collapsible controls** — Advanced controls hidden by default, swipe up to reveal
+- **Touch gestures** — Swipe to seek, tap to play/pause, double-tap to set loop markers
+- **Device-adaptive** — Automatically optimizes layout and sizing for phones (< 600px) and tablets (≥ 600px)
+- **Drag-friendly section map** — Touch and drag to scrub through the song with live preview
+- **Visual feedback** — Chevron indicator and gesture overlays show available actions
+- **Desktop unchanged** — Plugin only activates on touch devices, desktop experience remains standard
 
-## How It Works
+## Installation
 
-The plugin detects mobile devices using:
-- Screen width (`max-width: 768px`)
-- Touch capability (`ontouchstart` in window)
-- Touch points (navigator.maxTouchPoints)
+### Manual Installation
 
-When activated on the player screen:
+1. Navigate to your Slopsmith `plugins/` directory
+2. Clone this repo:
+   ```bash
+   cd plugins/
+   git clone https://github.com/saleemk/slopsmith-plugin-mobile-ui.git mobile_ui
+   ```
+3. Restart Slopsmith (or reload the page)
+4. Check logs for: `Registered plugin 'mobile_ui' (Mobile UI)`
 
-1. **Essential controls remain visible:**
-   - Play/pause button
-   - Seek back/forward buttons (icon-only: ⏪ ⏩)
-   - Speed slider with label stacked above (saves horizontal space)
-   - Time display (current / duration)
-   - Progress bar
-   - Close button (return to library)
+### Docker Installation
 
-2. **Advanced controls hidden by default (swipe up to reveal):**
-   - Arrangement switcher
-   - Difficulty slider
-   - A/V offset
-   - Visualization picker
-   - Audio mixer
-   - Quality selector
-   - Lyrics toggle
-   - Loop controls
-   - **All plugin buttons** (fretboard, tones, detect, step mode, stems, themes, etc.)
+If you're running Slopsmith in Docker, clone into the bind-mounted plugins directory:
+```bash
+cd /path/to/your/slopsmith/plugins/
+git clone https://github.com/saleemk/slopsmith-plugin-mobile-ui.git mobile_ui
+docker compose restart web
+```
 
-3. **Section map enhancements:**
-   - Height increased to 44px (from 20px) for better touch targets
-   - Section labels hidden (too small to read)
-   - **Drag to seek** - Touch and drag anywhere on the section map to scrub through the song
-   - **Live tooltip** - Shows section name and timestamp while dragging
-   - **Preview marker** - White line shows exactly where you'll seek before releasing
-   - Tap/click still works for instant seeking
-
-4. **Layout adjustments:**
-   - Player HUD (song/artist/combo/time) positioned 40px below section map
-   - 3D highway overlay positioned 105px from top to clear section map and player info
-   - All text elements visible and properly spaced on mobile
-
-## Current Limitations
-
-- **Single layout for all mobile devices** - Currently optimized for iPhone portrait (minimal controls). Future versions will adapt to device size and orientation:
-  - iPhone landscape: Show 1-2 more controls
-  - iPad portrait/landscape: Show progressively more controls
-  - See Phase 4 in the spec document for planned responsive breakpoints
+Alternatively, add a direct mount in `docker-compose.yml`:
+```yaml
+services:
+  web:
+    volumes:
+      - ./plugins:/app/plugins
+      - ../slopsmith-plugin-mobile-ui:/app/plugins/mobile_ui
+```
 
 ## Usage
 
-No configuration needed! The plugin automatically:
-- Detects mobile devices
-- Activates when you open a song
-- Deactivates when you leave the player
+The plugin activates automatically when you open a song on a phone or tablet.
 
-**To show/hide advanced controls:**
-- **Swipe up** on the player controls bar to expand
-- **Swipe down** on the controls bar to collapse
-- **⌃** indicator (upward chevron) hints to swipe up when controls are collapsed
-- **⌄** indicator (downward chevron) hints to swipe down when controls are expanded
+**Collapsible controls:**
+- **Swipe up** on controls bar → expand advanced tools
+- **Swipe down** on controls bar → collapse to essentials
+- **Tap chevron** (⌃ or ⌄) → toggle expand/collapse
 
-**To seek via section map:**
-- **Drag:** Touch and hold anywhere on the section map, drag left/right to scrub. Tooltip shows section and time. Release to seek.
-- **Tap:** Quick tap on the section map for instant seeking to that position.
+**Highway gestures:**
+- **Swipe left/right** → seek ±5 seconds
+- **Single tap** → play/pause
+- **Double tap** → set loop markers (A → B → Clear)
 
-**To control playback via highway gestures:**
-- **Swipe left** on the highway → seek backward 5 seconds
-- **Swipe right** on the highway → seek forward 5 seconds
-- **Double tap** on the highway → play/pause
+**Section map:**
+- **Drag** → scrub through song with live tooltip
+- **Tap** → jump to that position instantly
 
-All gestures show visual feedback (⏪ -5s, ⏩ +5s, ▶ Play, ⏸ Pause, ⬆ Show Tools, ⬇ Hide Tools).
+**What's visible by default:**
+- **Phone:** Play, speed slider, time, close button
+- **Tablet:** Play, speed, difficulty, arrangement, close button
 
-## Compatibility
+**Hidden until you swipe up:**
+- Loop controls (A/B buttons)
+- Visualization picker
+- Audio mixer
+- A/V offset
+- Quality/HD selector
+- All plugin buttons (fretboard, tones, detect, step mode, etc.)
 
-- **Mobile:** iOS 12+, Android 5+, any modern mobile browser
-- **Desktop:** No effect (plugin doesn't activate)
-- **Slopsmith:** v0.2.9+
+All gestures show brief visual feedback confirming the action.
 
-## Technical Details
+## How it works
 
-- **Size:** ~25 KB
-- **Dependencies:** None (pure vanilla JS)
-- **Performance:** Negligible (MutationObserver + event listeners only)
-- **Events:** Listens to `screen:changed` from `window.slopsmith`
-- **MutationObserver:** Watches for plugin buttons being injected into player controls
-- **Section Map Integration:** Enhances the built-in section_map plugin with mobile-specific improvements
+The plugin detects your device type (phone/tablet/desktop) using screen width and touch capability, then:
+- **Phone (< 600px):** Shows minimal controls for one-handed use
+- **Tablet (≥ 600px):** Shows more controls with bigger touch targets and spacing
+- **Desktop:** Plugin stays inactive — standard Slopsmith interface
 
-## Future Enhancements
+Gesture detection, layout adjustments, and control hiding happen automatically. No configuration needed.
 
-Planned features for future versions:
-- Responsive breakpoints (iPhone landscape, iPad portrait/landscape)
-- Touch gestures (swipe to seek, pinch to zoom highway)
-- Bottom sheet for mixer/viz/quality
-- Fullscreen/immersive mode
+## Technical notes
 
-## License
-
-AGPL-3.0 License - See LICENSE file for details.
+- Pure vanilla JavaScript, no dependencies
+- Uses `MutationObserver` to catch plugin buttons as they load
+- Hooks into `setLoopStart`/`setLoopEnd`/`clearLoop` for gesture sync
+- All device-specific sizing lives in a CONFIG object for easy maintenance
 
 ## Contributing
 
-Contributions welcome! Please open an issue or PR on GitHub.
+See [Slopsmith's CONTRIBUTING.md](https://github.com/byrongamatos/slopsmith/blob/main/CONTRIBUTING.md) for the workflow and DCO requirements.
+
+## License
+
+AGPL-3.0
