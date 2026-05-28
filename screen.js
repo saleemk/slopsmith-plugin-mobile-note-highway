@@ -49,7 +49,7 @@
             sliderTrackHeight: 20,      // px (slider element height inside wrapper)
             sliderWrapperHeight: 44,    // px (column wrapper height)
             sliderLabelFontSize: 9,     // px
-            sliderMinWidth: 0,          // px (0 = natural browser default)
+            sliderMinWidth: 85,         // px (wider now that back button freed space)
             // Dropdowns
             selectHeight: 44,           // px (arrangement, HD, 3D highway dropdowns)
             // Section map / HUD
@@ -168,6 +168,28 @@
             /* Higher specificity: must come AFTER .mobile-button to override */
             .mobile-button.mobile-hidden { display: none !important; }
             .mobile-hidden { display: none !important; }
+            
+            /* Phantom spacer reserves space for the floating "?" help button on the last flex row only */
+            #mobile-end-spacer {
+                order: 9999;
+                width: 56px;
+                min-height: 1px;
+                flex-shrink: 0;
+                pointer-events: none;
+            }
+            
+            /* Back button (relocated close button) - icon-only, white triangle */
+            #mobile-back-btn .mobile-back-svg {
+                width: ${IS_TABLET ? 16 : 14}px;
+                height: ${IS_TABLET ? 16 : 14}px;
+                display: block;
+            }
+            
+            /* Chevron bounce animation */
+            @keyframes chevronBounce {
+                0%, 100% { transform: translateY(0); }
+                50% { transform: translateY(-4px); }
+            }
         `;
         document.head.appendChild(style);
     }
@@ -192,6 +214,28 @@
             /* Higher specificity: must come AFTER .mobile-button to override */
             .mobile-button.mobile-hidden { display: none !important; }
             .mobile-hidden { display: none !important; }
+            
+            /* Phantom spacer reserves space for the floating "?" help button on the last flex row only */
+            #mobile-end-spacer {
+                order: 9999;
+                width: 56px;
+                min-height: 1px;
+                flex-shrink: 0;
+                pointer-events: none;
+            }
+            
+            /* Back button (relocated close button) - icon-only, white triangle */
+            #mobile-back-btn .mobile-back-svg {
+                width: ${IS_TABLET ? 16 : 14}px;
+                height: ${IS_TABLET ? 16 : 14}px;
+                display: block;
+            }
+            
+            /* Chevron bounce animation */
+            @keyframes chevronBounce {
+                0%, 100% { transform: translateY(0); }
+                50% { transform: translateY(-4px); }
+            }
         `;
     }
     
@@ -247,6 +291,82 @@
     }
     
     // ═══════════════════════════════════════════════════════════════
+    // Back Button Transformation
+    // ═══════════════════════════════════════════════════════════════
+    
+    /**
+     * Transform the core "× Close" button into a left-positioned icon-only
+     * Back button. Idempotent - safe to call multiple times.
+     * @param {HTMLButtonElement} btn - The close button to transform
+     */
+    function transformCloseButton(btn) {
+        if (!btn) {
+            console.log('[mobile_ui] transformCloseButton: no btn passed');
+            return;
+        }
+        // Already transformed?
+        if (btn.id === 'mobile-back-btn') {
+            console.log('[mobile_ui] transformCloseButton: already transformed, innerHTML length =', btn.innerHTML.length);
+            return;
+        }
+        
+        console.log('[mobile_ui] transformCloseButton: TRANSFORMING. Original innerHTML:', btn.innerHTML.substring(0, 100));
+        
+        // Save original innerHTML for cleanup restoration
+        if (!btn.dataset.mobileOriginalHtml) {
+            btn.dataset.mobileOriginalHtml = btn.innerHTML;
+            btn.dataset.mobileOriginalAriaLabel = btn.getAttribute('aria-label') || '';
+            btn.dataset.mobileOriginalTitle = btn.getAttribute('title') || '';
+        }
+        
+        // White chevron pointing left ("<" shape) - standard back-navigation icon.
+        // Built from two rotated CSS borders for crisp rendering at any size.
+        // Distinct from the player's filled triangles (which are media controls).
+        const chevSize = IS_TABLET ? 10 : 8;   // box size in px
+        const chevThick = IS_TABLET ? 2.5 : 2; // border thickness
+        btn.innerHTML = `<span class="mobile-back-chevron" aria-hidden="true" style="display:inline-block !important;width:${chevSize}px;height:${chevSize}px;border-left:${chevThick}px solid #ffffff;border-bottom:${chevThick}px solid #ffffff;transform:rotate(45deg);margin-right:${chevThick}px;"></span>`;
+        btn.id = 'mobile-back-btn';
+        btn.setAttribute('aria-label', 'Back to Library');
+        btn.setAttribute('title', 'Back to Library');
+        
+        console.log('[mobile_ui] transformCloseButton: DONE. New innerHTML:', btn.innerHTML.substring(0, 200));
+        console.log('[mobile_ui] transformCloseButton: button classes =', btn.className);
+        console.log('[mobile_ui] transformCloseButton: button computed display =', window.getComputedStyle(btn).display);
+        
+        // Check after a microtask to see if something wipes it
+        setTimeout(() => {
+            const checkBtn = document.getElementById('mobile-back-btn');
+            if (checkBtn) {
+                const chev = checkBtn.querySelector('.mobile-back-chevron');
+                console.log('[mobile_ui] After 100ms - chevron present:', !!chev, 'dimensions:', chev ? `${chev.offsetWidth}x${chev.offsetHeight}` : 'N/A');
+            }
+        }, 100);
+    }
+    
+    /**
+     * Restore the close button to its original state (for cleanup)
+     * @param {HTMLButtonElement} btn - The button to restore
+     */
+    function restoreCloseButton(btn) {
+        if (!btn) return;
+        if (btn.dataset.mobileOriginalHtml !== undefined) {
+            btn.innerHTML = btn.dataset.mobileOriginalHtml;
+            if (btn.dataset.mobileOriginalAriaLabel) {
+                btn.setAttribute('aria-label', btn.dataset.mobileOriginalAriaLabel);
+            }
+            if (btn.dataset.mobileOriginalTitle) {
+                btn.setAttribute('title', btn.dataset.mobileOriginalTitle);
+            }
+            delete btn.dataset.mobileOriginalHtml;
+            delete btn.dataset.mobileOriginalAriaLabel;
+            delete btn.dataset.mobileOriginalTitle;
+        }
+        if (btn.id === 'mobile-back-btn') {
+            btn.removeAttribute('id');
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
     // Essential Control Detection
     // ═══════════════════════════════════════════════════════════════
     
@@ -256,17 +376,13 @@
      * @returns {boolean} True if element is essential and should stay visible
      */
     function isEssentialControl(el) {
-        // Essential control IDs (phone default; tablet adds mastery so the
-        // difficulty slider stays visible in collapsed view alongside speed)
+        // Essential control IDs (phone: play + arrangement; tablet adds difficulty + speed)
         const essentialIds = [
             'btn-play',
-            'speed-slider',
-            'speed-label',
-            'current-time',
-            'audio-progress'
+            'arr-select'
         ];
         if (IS_TABLET) {
-            essentialIds.push('mastery-slider', 'mastery-slider-label', 'mastery-label', 'arr-select');
+            essentialIds.push('mastery-slider', 'mastery-slider-label', 'mastery-label', 'speed-slider', 'speed-label');
         }
         
         // Check by ID
@@ -543,8 +659,22 @@
         }
         
         // Hide all non-essential controls (after styling, so display: 'none' wins)
+        // Also set order for non-priority controls
         let hiddenCount = 0;
         Array.from(controls.children).forEach(el => {
+            // Set order for non-priority controls (not back/play/arr/diff/speed)
+            const isPriority = el.id === 'arr-select' || 
+                              el.id === 'mobile-mastery-wrapper' || 
+                              el.id === 'mobile-speed-wrapper' ||
+                              el.id === 'mobile-back-btn' ||
+                              el.id === 'btn-play' ||
+                              (el.tagName === 'BUTTON' && el.getAttribute('onclick')?.includes('seekBy('));
+            
+            if (!isPriority && !el.id?.startsWith('mobile-')) {
+                // Non-priority controls: order 100
+                el.style.order = '100';
+            }
+            
             if (!isEssentialControl(el)) {
                 hideControl(el);
                 hiddenCount++;
@@ -564,125 +694,102 @@
         // Pass 3: 600ms - catches slow plugins
         setTimeout(() => reclassifyAllControls(), 600);
         
-        // Create minimalist chevron indicator (absolutely positioned, always centered at top)
+        // Create minimalist chevron indicator (floats above controls with bounce animation)
         if (!_swipeIndicator) {
             _swipeIndicator = document.createElement('div');
             _swipeIndicator.id = 'mobile-swipe-indicator';
-            _swipeIndicator.textContent = '⌄';  // Always use down chevron, flip via transform
             _swipeIndicator.style.cssText = `
                 position: absolute;
-                top: 50%;
+                top: -18px;
                 left: 50%;
-                transform: translate(-50%, -50%) scaleY(-1);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: ${CFG.chevronSize}px;
-                line-height: 1;
-                color: rgba(255, 255, 255, 0.35);
+                transform: translateX(-50%) scaleY(-1);
                 pointer-events: none;
                 user-select: none;
                 z-index: 100;
-                transition: transform 0.2s ease;
             `;
             
+            // Inner element for bounce animation
+            const chevronInner = document.createElement('div');
+            chevronInner.textContent = '⌄';
+            chevronInner.style.cssText = `
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: ${CFG.chevronSize + 8}px;
+                line-height: 1;
+                color: rgba(255, 255, 255, 0.5);
+                text-shadow: 0 0 8px rgba(255, 255, 255, 0.3), 0 0 12px rgba(255, 255, 255, 0.2);
+                animation: chevronBounce 2.5s ease-in-out infinite;
+            `;
+            
+            _swipeIndicator.appendChild(chevronInner);
             controls.appendChild(_swipeIndicator);
             console.log('[mobile_ui] ✅ Minimalist chevron indicator created');
         }
-
-        // Inject a flex spacer that carves a center gap in the first row of the
-        // expanded view (so the absolutely-positioned chevron above doesn't sit on
-        // top of the arrangement dropdown). Placed in DOM right before #arr-select
-        // so it naturally lands after the seek/play button group. ~30px wide
-        // keeps the speed/difficulty sliders close together.
-        const arrSelect = document.getElementById('arr-select');
-        if (arrSelect && !document.getElementById('mobile-chevron-spacer')) {
+        
+        // Inject a phantom end-spacer that reserves 56px on the LAST flex row
+        // for the floating "?" help button. Using order:9999 + flex-shrink:0
+        // ensures it always lands as the last item on whatever row is last.
+        if (!document.getElementById('mobile-end-spacer')) {
             const spacer = document.createElement('div');
-            spacer.id = 'mobile-chevron-spacer';
-            // On tablet the spacer is always visible (sits between speed and
-            // mastery sliders in both collapsed and expanded views). On phone
-            // it's only visible when expanded (creates the chevron gap in row 1).
-            const visible = IS_TABLET || _toolsExpanded;
-            spacer.style.cssText = 'flex: 0 0 ' + CFG.chevronSpacerWidth + 'px; height: 1px; display: ' +
-                (visible ? 'block' : 'none') + ';';
+            spacer.id = 'mobile-end-spacer';
             spacer.setAttribute('aria-hidden', 'true');
-            arrSelect.parentElement.insertBefore(spacer, arrSelect);
+            controls.appendChild(spacer);
         }
 
         // Reorder the first row for expanded view: move the speed and mastery
-        // wrappers to sit right after the chevron spacer (before the arrangement
-        // dropdown), so the top row reads:
-        //   [seek<<][play][seek>>] [chevron gap] [Speed] [Difficulty] ... [Combo]
-        // The collapsed view is unaffected because the speed wrapper has
-        // `order: 998` + `marginLeft: auto` which still wins regardless of DOM
-        // position, and the mastery wrapper / arrangement select are hidden in
-        // collapsed mode.
-        //
-        // On TABLET the layout is `[Speed] [chevron] [Difficulty]` in BOTH
-        // views, so we insert the spacer BETWEEN the two wrappers (DOM order:
-        // speed -> spacer -> mastery -> arrSelect).
+        // wrappers before the arrangement dropdown, so the top row reads:
+        //   [seek<<][play][seek>>] [Arrangement] [Speed] [Difficulty]
+        // Use explicit CSS order values for clear positioning.
+        const arrSelect = document.getElementById('arr-select');
         const _speedWrapperEl = document.getElementById('mobile-speed-wrapper');
         const _masteryWrapperEl = document.getElementById('mobile-mastery-wrapper');
-        const _chevSpacerEl = document.getElementById('mobile-chevron-spacer');
-        if (arrSelect && IS_TABLET) {
-            // Tablet: speed -> spacer -> mastery, all before arrSelect
-            if (_speedWrapperEl) arrSelect.parentElement.insertBefore(_speedWrapperEl, arrSelect);
-            if (_chevSpacerEl) arrSelect.parentElement.insertBefore(_chevSpacerEl, arrSelect);
-            if (_masteryWrapperEl) arrSelect.parentElement.insertBefore(_masteryWrapperEl, arrSelect);
-        } else if (arrSelect) {
-            // Phone (original): spacer was already inserted before arrSelect;
-            // move speed and mastery before arrSelect so they land after spacer.
-            if (_speedWrapperEl) arrSelect.parentElement.insertBefore(_speedWrapperEl, arrSelect);
-            if (_masteryWrapperEl) arrSelect.parentElement.insertBefore(_masteryWrapperEl, arrSelect);
+        
+        console.log('[mobile_ui] Setting control order - IS_TABLET:', IS_TABLET, '_toolsExpanded:', _toolsExpanded);
+        
+        // Priority order (simple consecutive values):
+        // -1: Back button (set later)
+        //  0: Player controls (natural)
+        //  1: Arrangement
+        //  2: Difficulty
+        //  3: Speed
+        // 100+: Everything else
+        
+        if (arrSelect) {
+            arrSelect.style.order = '1';
+            arrSelect.style.marginLeft = '12px';
+            // Force wrap to row 2 on phone expanded by eating remaining space
+            arrSelect.style.marginRight = (!IS_TABLET && _toolsExpanded) ? 'auto' : '0';
+            console.log('[mobile_ui] arr-select order=1, marginRight:', arrSelect.style.marginRight);
+        }
+        
+        if (_masteryWrapperEl) {
+            _masteryWrapperEl.style.order = '2';
+            _masteryWrapperEl.style.marginLeft = '0';
+            console.log('[mobile_ui] mastery-wrapper order=2');
+        }
+        
+        if (_speedWrapperEl) {
+            _speedWrapperEl.style.order = '3';
+            _speedWrapperEl.style.marginLeft = '0';
+            _speedWrapperEl.style.marginRight = '0';
+            console.log('[mobile_ui] speed-wrapper order=3');
         }
 
         // Ensure controls container has position: relative for absolute positioning
         controls.style.position = 'relative';
-
-        // Set button ordering for proper layout.
-        // PHONE: in COLLAPSED mode speed wrapper gets order:998 + marginLeft:auto
-        // to push it to the right side. In EXPANDED mode speed gets marginLeft:auto
-        // with no special order so it sits with mastery after the chevron spacer.
-        // TABLET: speed always sits left-of-center with marginLeft:auto (no order
-        // hack) so the layout is [play] [speed][chevron][mastery] [close] in both
-        // collapsed and expanded views.
-        const speedWrapper = document.getElementById('mobile-speed-wrapper');
-        if (speedWrapper) {
-            speedWrapper.style.order = (IS_TABLET || _toolsExpanded) ? '' : '998';
-            // Tablet: speed sits adjacent to play controls (no auto margin).
-            // Phone: marginLeft:auto pushes speed to the right of play group.
-            speedWrapper.style.marginLeft = IS_TABLET ? '' : 'auto';
-            speedWrapper.style.marginRight = '';
-        }
-        const masteryWrapper = document.getElementById('mobile-mastery-wrapper');
-        if (masteryWrapper) {
-            masteryWrapper.style.marginLeft = '';  // Sits next to spacer
-        }
-        // Tablet: spacer gets marginLeft:auto to create the gap and push
-        // difficulty+arrangement to the right. Phone: no auto margin.
-        const _spacerEl2 = document.getElementById('mobile-chevron-spacer');
-        if (_spacerEl2) {
-            _spacerEl2.style.marginLeft = IS_TABLET ? 'auto' : '';
-            // Ensure flex properties are maintained
-            if (IS_TABLET) {
-                _spacerEl2.style.flex = '0 0 ' + CFG.chevronSpacerWidth + 'px';
-            }
-        }
         
-        // Find and position close button at far right
+        // Find close button and transform into a left-positioned Back icon button
         const closeButton = Array.from(controls.querySelectorAll('button')).find(btn => {
             const onclick = btn.getAttribute('onclick');
             return onclick && onclick.includes("showScreen('home')");
         });
         if (closeButton) {
-            closeButton.style.order = '999';
+            transformCloseButton(closeButton);
+            closeButton.style.order = '-1';
             closeButton.classList.remove('ml-auto');
-            // Tablet: close always gets marginLeft:auto in both views so the
-            // [speed][chev][diff][arr] cluster centers with gap on both sides.
-            // Phone: marginLeft:auto only when expanded (collapsed mode has
-            // speed wrapper at order:998 + ml:auto claiming the right space).
-            closeButton.style.marginLeft = (IS_TABLET || _toolsExpanded) ? 'auto' : '0';
-            //console.log('[mobile_ui] ✅ Close button positioned at order 999');
+            closeButton.style.marginLeft = '0';
+            closeButton.style.marginRight = '12px';
         }
     }
     
@@ -694,11 +801,32 @@
         const controls = document.getElementById('player-controls');
         if (!controls) return;
         
+        console.log('[mobile_ui] reclassifyAllControls - IS_TABLET:', IS_TABLET, '_toolsExpanded:', _toolsExpanded);
+        
+        // Show what's essential for debugging
+        const essentialIds = ['btn-play', 'arr-select'];
+        if (IS_TABLET) {
+            essentialIds.push('mastery-slider', 'mastery-slider-label', 'mastery-label', 'speed-slider', 'speed-label');
+        }
+        console.log('[mobile_ui] Essential controls (visible in collapsed):', essentialIds);
+        
         let fixedCount = 0;
         Array.from(controls.children).forEach(el => {
             // Skip our injected helpers
             if (el.id === 'mobile-swipe-indicator') return;
-            if (el.id === 'mobile-chevron-spacer') return;
+            if (el.id === 'mobile-end-spacer') return;
+            
+            // Set order for non-priority controls
+            const isPriority = el.id === 'arr-select' || 
+                              el.id === 'mobile-mastery-wrapper' || 
+                              el.id === 'mobile-speed-wrapper' ||
+                              el.id === 'mobile-back-btn' ||
+                              el.id === 'btn-play' ||
+                              (el.tagName === 'BUTTON' && el.getAttribute('onclick')?.includes('seekBy('));
+            
+            if (!isPriority && !el.id?.startsWith('mobile-') && !el.style.order) {
+                el.style.order = '100';
+            }
             
             if (isEssentialControl(el)) {
                 // Essential controls - ensure visible and no hide class
@@ -724,20 +852,22 @@
             }
         });
         
-        // Ensure close button is at far right (order: 999) with correct margin
+        // Ensure close button is transformed into a Back icon at far left (order: -1)
         const closeButton = Array.from(controls.querySelectorAll('button')).find(btn => {
             const onclick = btn.getAttribute('onclick');
             return onclick && onclick.includes("showScreen('home')");
         });
-        if (closeButton && closeButton.style.order !== '999') {
-            closeButton.style.order = '999';
+        if (closeButton && closeButton.style.order !== '-1') {
+            transformCloseButton(closeButton);
+            closeButton.style.order = '-1';
             closeButton.classList.remove('ml-auto');
-            closeButton.style.marginLeft = (IS_TABLET || _toolsExpanded) ? 'auto' : '0';
+            closeButton.style.marginLeft = '0';
+            closeButton.style.marginRight = '12px';
         }
 
-        // if (fixedCount > 0) {
-        //     console.log(`[mobile_ui] Fixed ${fixedCount} controls in reclassify pass`);
-        // }
+        if (fixedCount > 0) {
+            console.log(`[mobile_ui] Fixed ${fixedCount} controls in reclassify pass`);
+        }
     }
     
     /**
@@ -765,7 +895,7 @@
                             
                             // Skip if it's our swipe indicator
                             if (node.id === 'mobile-swipe-indicator') return;
-                            if (node.id === 'mobile-chevron-spacer') return;
+                            if (node.id === 'mobile-end-spacer') return;
                             
                             // Apply touch-friendly styling to buttons
                             if (node.tagName === 'BUTTON') {
@@ -784,7 +914,7 @@
                         
                         // Skip our injected helpers
                         if (target.id === 'mobile-swipe-indicator') return;
-                        if (target.id === 'mobile-chevron-spacer') return;
+                        if (target.id === 'mobile-end-spacer') return;
                         
                         if (target.nodeType === Node.ELEMENT_NODE && !isEssentialControl(target)) {
                             // If mobile-hide-advanced class was wiped, re-add it
@@ -837,80 +967,90 @@
             _toolsExpanded = !_toolsExpanded;
         }
         
-        // Update chevron indicator - position and flip based on mode
+        // Update chevron indicator - flip and reposition based on mode
         if (_swipeIndicator) {
             if (_toolsExpanded) {
-                // Expanded: down chevron (normal), positioned at top of first row
-                _swipeIndicator.style.top = '12px';
+                // Expanded: down chevron (normal), position higher (2 rows of controls)
+                // Tablet needs more clearance due to larger layout
+                _swipeIndicator.style.top = IS_TABLET ? '-42px' : '-28px';
                 _swipeIndicator.style.transform = 'translateX(-50%) scaleY(1)';
             } else {
-                // Collapsed: up chevron (flipped), centered vertically in single row
-                _swipeIndicator.style.top = '50%';
-                _swipeIndicator.style.transform = 'translate(-50%, -50%) scaleY(-1)';
+                // Collapsed: up chevron (flipped), position closer (1 row of controls)
+                _swipeIndicator.style.top = '-18px';
+                _swipeIndicator.style.transform = 'translateX(-50%) scaleY(-1)';
             }
-        }
-
-        // Show/hide the inline chevron spacer. On TABLET it's always visible
-        // (sits between speed and mastery in both views). On PHONE it's only
-        // visible in expanded mode (creates the chevron gap in row 1).
-        const chevSpacer = document.getElementById('mobile-chevron-spacer');
-        if (chevSpacer) {
-            chevSpacer.style.display = (IS_TABLET || _toolsExpanded) ? 'block' : 'none';
         }
 
         // Get controls element for subsequent operations
         const controls = document.getElementById('player-controls');
 
-        // Toggle speed wrapper positioning: see enhancePlayerControls() for the
-        // full phone/tablet rationale. On tablet, no order hack ever.
-        const speedWrapper = document.getElementById('mobile-speed-wrapper');
-        if (speedWrapper) {
-            speedWrapper.style.order = (IS_TABLET || _toolsExpanded) ? '' : '998';
-            // Tablet: speed sits adjacent to play controls (no auto margin).
-            // Phone: marginLeft:auto pushes speed to the right of play group.
-            speedWrapper.style.marginLeft = IS_TABLET ? '' : 'auto';
+        console.log('[mobile_ui] toggleAdvancedControls - IS_TABLET:', IS_TABLET, '_toolsExpanded:', _toolsExpanded);
+
+        // Re-apply explicit order values (priority order: back=-1, player=0, arr=1, diff=2, speed=3)
+        const arrSelect = document.getElementById('arr-select');
+        if (arrSelect) {
+            arrSelect.style.order = '1';
+            arrSelect.style.marginLeft = '12px';
+            // Force wrap to row 2 on phone expanded
+            arrSelect.style.marginRight = (!IS_TABLET && _toolsExpanded) ? 'auto' : '0';
+            console.log('[mobile_ui] [toggle] arr-select order=1, marginRight:', arrSelect.style.marginRight);
         }
 
-        // Difficulty slider sits naturally next to spacer (no marginLeft).
         const masteryWrapper = document.getElementById('mobile-mastery-wrapper');
         if (masteryWrapper) {
-            masteryWrapper.style.marginLeft = '';
+            masteryWrapper.style.order = '2';
+            masteryWrapper.style.marginLeft = '0';
+            console.log('[mobile_ui] [toggle] mastery-wrapper order=2');
         }
 
-        // Tablet: spacer gets marginLeft:auto to create the gap and push
-        // difficulty+arrangement to the right. Phone: no auto margin.
-        if (chevSpacer) {
-            chevSpacer.style.marginLeft = IS_TABLET ? 'auto' : '';
-            // Ensure flex properties are maintained (in case something reset them)
-            if (IS_TABLET) {
-                chevSpacer.style.flex = '0 0 ' + CFG.chevronSpacerWidth + 'px';
-            }
+        const speedWrapper = document.getElementById('mobile-speed-wrapper');
+        if (speedWrapper) {
+            speedWrapper.style.order = '3';
+            speedWrapper.style.marginLeft = '0';
+            speedWrapper.style.marginRight = '0';
+            console.log('[mobile_ui] [toggle] speed-wrapper order=3');
         }
 
-        // Arrangement select sits in natural DOM position (after speed/mastery
-        // wrappers) so it wraps to row 2 at the left edge in expanded mode.
-        // No order manipulation needed.
-
-        // Close button: push to right edge in expanded mode, neutral in collapsed
-        // (where speed wrapper with order:998 + marginLeft:auto is far right).
+        // Close button: keep transformed into a Back icon at far left
         if (controls) {
             const closeButton = Array.from(controls.querySelectorAll('button')).find(btn => {
                 const onclick = btn.getAttribute('onclick');
                 return onclick && onclick.includes("showScreen('home')");
             });
             if (closeButton) {
-                closeButton.style.marginLeft = (IS_TABLET || _toolsExpanded) ? 'auto' : '0';
+                transformCloseButton(closeButton);
+                closeButton.style.order = '-1';
+                closeButton.style.marginLeft = '0';
+                closeButton.style.marginRight = '12px';
             }
         }
         
         // Re-scan ALL controls to catch any late-injected buttons
         if (controls) {
+            console.log('[mobile_ui] [toggle] Re-scanning controls, _toolsExpanded=', _toolsExpanded);
             Array.from(controls.children).forEach(el => {
                 // Skip our injected helpers
                 if (el.id === 'mobile-swipe-indicator') return;
-                if (el.id === 'mobile-chevron-spacer') return;
+                if (el.id === 'mobile-end-spacer') return;
                 
-                if (isEssentialControl(el)) {
+                // Set order for non-priority controls
+                const isPriority = el.id === 'arr-select' || 
+                                  el.id === 'mobile-mastery-wrapper' || 
+                                  el.id === 'mobile-speed-wrapper' ||
+                                  el.id === 'mobile-back-btn' ||
+                                  el.id === 'btn-play' ||
+                                  (el.tagName === 'BUTTON' && el.getAttribute('onclick')?.includes('seekBy('));
+                
+                if (!isPriority && !el.id?.startsWith('mobile-') && !el.style.order) {
+                    el.style.order = '100';
+                }
+                
+                const isEssential = isEssentialControl(el);
+                if (el.id === 'mobile-mastery-wrapper' || el.id === 'mobile-speed-wrapper') {
+                    console.log('[mobile_ui] [toggle] Processing', el.id, '- isEssential:', isEssential, '_toolsExpanded:', _toolsExpanded);
+                }
+                
+                if (isEssential) {
                     // Essential controls - always visible, ensure no hide class
                     el.classList.remove('mobile-hide-advanced');
                 } else {
@@ -921,21 +1061,39 @@
                     }
                     if (_toolsExpanded) {
                         el.classList.remove('mobile-hidden');
+                        if (el.id === 'mobile-mastery-wrapper' || el.id === 'mobile-speed-wrapper') {
+                            console.log('[mobile_ui] [toggle] Removed mobile-hidden from', el.id, '- classList now:', el.classList.toString());
+                            console.log('[mobile_ui] [toggle]  inline style.display:', el.style.display);
+                            console.log('[mobile_ui] [toggle]  computed display:', window.getComputedStyle(el).display);
+                        }
                     } else {
                         el.classList.add('mobile-hidden');
                     }
                 }
             });
             
-            // Ensure close button is at far right with correct margin
+            // Log final state AFTER re-scan
+            console.log('[mobile_ui] [toggle] Final state after re-scan:');
+            const finalMastery = document.getElementById('mobile-mastery-wrapper');
+            const finalSpeed = document.getElementById('mobile-speed-wrapper');
+            if (finalMastery) {
+                console.log('  mastery-wrapper: classList=', finalMastery.classList.toString(), 'inline display=', finalMastery.style.display, 'computed=', window.getComputedStyle(finalMastery).display);
+            }
+            if (finalSpeed) {
+                console.log('  speed-wrapper: classList=', finalSpeed.classList.toString(), 'inline display=', finalSpeed.style.display, 'computed=', window.getComputedStyle(finalSpeed).display);
+            }
+            
+            // Ensure close button stays transformed as Back icon at far left
             const closeButton = Array.from(controls.querySelectorAll('button')).find(btn => {
                 const onclick = btn.getAttribute('onclick');
                 return onclick && onclick.includes("showScreen('home')");
             });
             if (closeButton) {
-                closeButton.style.order = '999';
+                transformCloseButton(closeButton);
+                closeButton.style.order = '-1';
                 closeButton.classList.remove('ml-auto');
-                closeButton.style.marginLeft = (IS_TABLET || _toolsExpanded) ? 'auto' : '0';
+                closeButton.style.marginLeft = '0';
+                closeButton.style.marginRight = '12px';
             }
         }
     }
@@ -979,13 +1137,25 @@
             _swipeIndicator = null;
         }
         
+        // Remove phantom end-spacer
+        const endSpacer = document.getElementById('mobile-end-spacer');
+        if (endSpacer) endSpacer.remove();
+        
         // Get controls element
         const controls = document.getElementById('player-controls');
 
-        // Remove our injected chevron spacer
-        const chevSpacer = document.getElementById('mobile-chevron-spacer');
-        if (chevSpacer) {
-            chevSpacer.remove();
+        // Restore close button to original state and clear positioning
+        if (controls) {
+            const backBtn = controls.querySelector('#mobile-back-btn') || Array.from(controls.querySelectorAll('button')).find(btn => {
+                const onclick = btn.getAttribute('onclick');
+                return onclick && onclick.includes("showScreen('home')");
+            });
+            if (backBtn) {
+                restoreCloseButton(backBtn);
+                backBtn.style.order = '';
+                backBtn.style.marginLeft = '';
+                backBtn.style.marginRight = '';
+            }
         }
 
         // Restore all hidden controls
