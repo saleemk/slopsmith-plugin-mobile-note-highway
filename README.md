@@ -1,15 +1,19 @@
-# Mobile UI
+# Mobile Note Highway
 
-A mobile interface plugin for [Slopsmith](https://github.com/byrongamatos/slopsmith) that optimizes the player for touch devices with collapsible controls, intuitive gestures, and device-adaptive layouts.
+**v1.0.0** — Take your practice mobile.
+
+A touch-optimized note highway player plugin for [Slopsmith](https://github.com/slopsmith/slopsmith) that transforms the player experience on phones and tablets. Collapsible controls, intuitive gestures, and device-adaptive layouts let you focus on playing — not fumbling with tiny buttons.
+
+**Tested on iOS (portrait mode).** Android compatibility expected but unverified.
 
 ## Features
 
-- **Collapsible controls** — Advanced controls hidden by default, swipe up to reveal
-- **Touch gestures** — Swipe to seek, tap to play/pause, double-tap to set loop markers
-- **Device-adaptive** — Automatically optimizes layout and sizing for phones (< 600px) and tablets (≥ 600px)
-- **Drag-friendly section map** — Touch and drag to scrub through the song with live preview
-- **Visual feedback** — Chevron indicator and gesture overlays show available actions
-- **Desktop unchanged** — Plugin only activates on touch devices, desktop experience remains standard
+- **Smart collapsible controls** — Advanced tools hidden by default, swipe up to reveal everything
+- **Natural touch gestures** — Swipe to seek, tap to play/pause, double-tap to set loop markers
+- **Device-adaptive layout** — Automatically optimizes for phones (< 600px) and tablets (≥ 600px) with proper spacing and touch targets
+- **Drag-to-scrub section map** — Touch and drag through the song with live preview
+- **Visual feedback** — Chevron indicators and gesture overlays guide you
+- **Desktop-friendly** — Plugin only activates on touch devices — your desktop experience stays untouched
 
 ## Installation
 
@@ -19,17 +23,17 @@ A mobile interface plugin for [Slopsmith](https://github.com/byrongamatos/slopsm
 2. Clone this repo:
    ```bash
    cd plugins/
-   git clone https://github.com/saleemk/slopsmith-plugin-mobile-ui.git mobile_ui
+   git clone https://github.com/saleemk/slopsmith-plugin-mobile-note-highway.git mobile_note_highway
    ```
 3. Restart Slopsmith (or reload the page)
-4. Check logs for: `Registered plugin 'mobile_ui' (Mobile UI)`
+4. Check logs for: `Registered plugin 'mobile_note_highway' (Mobile Note Highway)`
 
 ### Docker Installation
 
 If you're running Slopsmith in Docker, clone into the bind-mounted plugins directory:
 ```bash
 cd /path/to/your/slopsmith/plugins/
-git clone https://github.com/saleemk/slopsmith-plugin-mobile-ui.git mobile_ui
+git clone https://github.com/saleemk/slopsmith-plugin-mobile-note-highway.git mobile_note_highway
 docker compose restart web
 ```
 
@@ -39,12 +43,14 @@ services:
   web:
     volumes:
       - ./plugins:/app/plugins
-      - ../slopsmith-plugin-mobile-ui:/app/plugins/mobile_ui
+      - ../slopsmith-plugin-mobile-note-highway:/app/plugins/mobile_note_highway
 ```
 
 ## Usage
 
-The plugin activates automatically when you open a song on a phone or tablet.
+Open any song on your phone or tablet — the plugin activates automatically.
+
+### Controls
 
 **Collapsible controls:**
 - **Swipe up** on controls bar → expand advanced tools
@@ -76,12 +82,29 @@ All gestures show brief visual feedback confirming the action.
 
 ## How it works
 
-The plugin detects your device type (phone/tablet/desktop) using screen width and touch capability, then:
-- **Phone (< 600px):** Shows minimal controls for one-handed use
-- **Tablet (≥ 600px):** Shows more controls with bigger touch targets and spacing
-- **Desktop:** Plugin stays inactive — standard Slopsmith interface
+The plugin detects your device type using screen width and touch capability, then adapts instantly:
+
+- **Phone (< 600px):** Minimal controls optimized for one-handed use
+- **Tablet (≥ 600px):** More controls with bigger touch targets and generous spacing
+- **Desktop:** Plugin stays dormant — standard Slopsmith interface
 
 Gesture detection, layout adjustments, and control hiding happen automatically. No configuration needed.
+
+## Compatibility
+
+**Tested on:** iOS devices (iPhone and iPad) in portrait orientation.
+
+**Optimized for:** Portrait mode on phones and tablets. Landscape mode works but may require manual scrolling.
+
+The plugin should work on Android devices but has not been tested. If you encounter issues, please open an issue with your device model and browser version.
+
+## Roadmap
+
+Future improvements planned:
+
+- **Landscape optimization** — Better layout and spacing for horizontal orientation
+- **Expanded view organization** — Group related buttons and plugins into categorized sections (Practice/Audio/Visual/Plugins) using CSS Grid for cleaner, more intuitive control layout
+- **Gesture refinement** — Re-evaluate swipe left/right behavior for better seek control
 
 ## Technical notes
 
@@ -92,7 +115,7 @@ Gesture detection, layout adjustments, and control hiding happen automatically. 
 
 ## Contributing
 
-See [Slopsmith's CONTRIBUTING.md](https://github.com/byrongamatos/slopsmith/blob/main/CONTRIBUTING.md) for the workflow and DCO requirements.
+See [Slopsmith's CONTRIBUTING.md](https://github.com/slopsmith/slopsmith/blob/main/CONTRIBUTING.md) for the workflow and DCO requirements.
 
 ## License
 
