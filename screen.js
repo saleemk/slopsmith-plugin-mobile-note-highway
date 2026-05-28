@@ -302,10 +302,7 @@
      * @param {HTMLButtonElement} btn - The close button to transform
      */
     function transformCloseButton(btn) {
-        if (!btn) {
-            console.log('[mobile_note_highway] transformCloseButton: no btn passed');
-            return;
-        }
+        if (!btn) return;
         // Already transformed?
         if (btn.id === 'mobile-back-btn') {
             console.log('[mobile_note_highway] transformCloseButton: already transformed, innerHTML length =', btn.innerHTML.length);
@@ -438,10 +435,7 @@
             return;
         }
         
-        //console.log('[mobile_note_highway] Enhancing player controls');
-        
         // Make all buttons touch-friendly with consistent height FIRST
-        // (before hiding, so display: 'none' can overwrite display: 'inline-flex')
         Array.from(controls.querySelectorAll('button')).forEach(btn => {
             btn.style.setProperty('height', CFG.buttonHeight + 'px', 'important');
             btn.style.setProperty('min-width', CFG.buttonHeight + 'px', 'important');
@@ -682,8 +676,6 @@
             }
         });
         
-        //console.log(`[mobile_note_highway] Hiding ${hiddenCount} advanced controls`);
-        
         // Watch for plugin buttons being injected after initial load
         startControlsObserver(controls);
         
@@ -725,7 +717,6 @@
             
             _swipeIndicator.appendChild(chevronInner);
             controls.appendChild(_swipeIndicator);
-            console.log('[mobile_note_highway] ✅ Minimalist chevron indicator created');
         }
         
         // Inject a phantom end-spacer that reserves 56px on the LAST flex row
@@ -746,8 +737,6 @@
         const _speedWrapperEl = document.getElementById('mobile-speed-wrapper');
         const _masteryWrapperEl = document.getElementById('mobile-mastery-wrapper');
         
-        console.log('[mobile_note_highway] Setting control order - IS_TABLET:', IS_TABLET, '_toolsExpanded:', _toolsExpanded);
-        
         // Priority order (simple consecutive values):
         // -1: Back button (set later)
         //  0: Player controls (natural)
@@ -760,29 +749,24 @@
             arrSelect.style.order = '1';
             arrSelect.style.marginLeft = '12px';
             arrSelect.style.width = CFG.selectWidth + 'px';
-            // Force wrap to row 2 on phone expanded by eating remaining space
             arrSelect.style.marginRight = (!IS_TABLET && _toolsExpanded) ? 'auto' : '0';
-            console.log('[mobile_note_highway] arr-select order=1, marginRight:', arrSelect.style.marginRight);
         }
         
         if (_masteryWrapperEl) {
             _masteryWrapperEl.style.order = '2';
             _masteryWrapperEl.style.marginLeft = '0';
-            console.log('[mobile_note_highway] mastery-wrapper order=2');
         }
         
         if (_speedWrapperEl) {
             _speedWrapperEl.style.order = '3';
             _speedWrapperEl.style.marginLeft = '0';
             _speedWrapperEl.style.marginRight = '0';
-            console.log('[mobile_note_highway] speed-wrapper order=3');
         }
         
         // A/V offset wrapper gets order 100 (non-essential, appears after priority controls)
         const _avWrapperEl = document.getElementById('mobile-av-wrapper');
         if (_avWrapperEl) {
             _avWrapperEl.style.order = '100';
-            console.log('[mobile_note_highway] av-wrapper order=100');
         }
 
         // Ensure controls container has position: relative for absolute positioning
@@ -876,15 +860,6 @@
         const controls = document.getElementById('player-controls');
         if (!controls) return;
         
-        console.log('[mobile_note_highway] reclassifyAllControls - IS_TABLET:', IS_TABLET, '_toolsExpanded:', _toolsExpanded);
-        
-        // Show what's essential for debugging
-        const essentialIds = ['btn-play', 'arr-select'];
-        if (IS_TABLET) {
-            essentialIds.push('mastery-slider', 'mastery-slider-label', 'mastery-label', 'speed-slider', 'speed-label');
-        }
-        console.log('[mobile_note_highway] Essential controls (visible in collapsed):', essentialIds);
-        
         let fixedCount = 0;
         Array.from(controls.children).forEach(el => {
             // Skip our injected helpers
@@ -919,7 +894,6 @@
                     el.classList.add('mobile-hidden');
                 }
                 if (wasFixed) {
-                    //console.log('[mobile_note_highway] Fixing control:', el.textContent || el.id || 'unknown');
                     fixedCount++;
                 }
             }
@@ -936,10 +910,6 @@
             closeButton.classList.remove('ml-auto');
             closeButton.style.marginLeft = '0';
             closeButton.style.marginRight = '12px';
-        }
-
-        if (fixedCount > 0) {
-            console.log(`[mobile_note_highway] Fixed ${fixedCount} controls in reclassify pass`);
         }
     }
     
@@ -1029,10 +999,8 @@
             childList: true,      // Watch for children being added/removed
             subtree: true,        // Watch nested changes (children's attributes)
             attributes: true,     // Watch for attribute changes (className, style, etc.)
-            attributeFilter: ['class', 'style']  // Only watch class and style changes
+            attributeFilter: ['class', 'style']
         });
-        
-        //console.log('[mobile_note_highway] Controls observer started');
     }
     
     /**
@@ -1042,7 +1010,6 @@
         if (_controlsObserver) {
             _controlsObserver.disconnect();
             _controlsObserver = null;
-            //console.log('[mobile_note_highway] Controls observer stopped');
         }
     }
     
@@ -1073,24 +1040,19 @@
         // Get controls element for subsequent operations
         const controls = document.getElementById('player-controls');
 
-        console.log('[mobile_note_highway] toggleAdvancedControls - IS_TABLET:', IS_TABLET, '_toolsExpanded:', _toolsExpanded);
-
         // Re-apply explicit order values (priority order: back=-1, player=0, arr=1, diff=2, speed=3)
         const arrSelect = document.getElementById('arr-select');
         if (arrSelect) {
             arrSelect.style.order = '1';
             arrSelect.style.marginLeft = '12px';
             arrSelect.style.width = CFG.selectWidth + 'px';
-            // Force wrap to row 2 on phone expanded
             arrSelect.style.marginRight = (!IS_TABLET && _toolsExpanded) ? 'auto' : '0';
-            console.log('[mobile_note_highway] [toggle] arr-select order=1, marginRight:', arrSelect.style.marginRight);
         }
 
         const masteryWrapper = document.getElementById('mobile-mastery-wrapper');
         if (masteryWrapper) {
             masteryWrapper.style.order = '2';
             masteryWrapper.style.marginLeft = '0';
-            console.log('[mobile_note_highway] [toggle] mastery-wrapper order=2');
         }
 
         const speedWrapper = document.getElementById('mobile-speed-wrapper');
@@ -1098,14 +1060,12 @@
             speedWrapper.style.order = '3';
             speedWrapper.style.marginLeft = '0';
             speedWrapper.style.marginRight = '0';
-            console.log('[mobile_note_highway] [toggle] speed-wrapper order=3');
         }
         
         // A/V offset wrapper gets order 100 (non-essential)
         const avWrapper = document.getElementById('mobile-av-wrapper');
         if (avWrapper) {
             avWrapper.style.order = '100';
-            console.log('[mobile_note_highway] [toggle] av-wrapper order=100');
         }
 
         // Close button: keep transformed into a Back icon at far left
@@ -1141,9 +1101,6 @@
                 }
                 
                 const isEssential = isEssentialControl(el);
-                if (el.id === 'mobile-mastery-wrapper' || el.id === 'mobile-speed-wrapper') {
-                    console.log('[mobile_note_highway] [toggle] Processing', el.id, '- isEssential:', isEssential, '_toolsExpanded:', _toolsExpanded);
-                }
                 
                 if (isEssential) {
                     // Essential controls - always visible, ensure no hide class
@@ -1152,31 +1109,14 @@
                     // Non-essential - mark for hiding and set display based on expanded state
                     if (!el.classList.contains('mobile-hide-advanced')) {
                         el.classList.add('mobile-hide-advanced');
-                        //console.log('[mobile_note_highway] Late classification:', el.textContent || el.id || 'unknown');
                     }
                     if (_toolsExpanded) {
                         el.classList.remove('mobile-hidden');
-                        if (el.id === 'mobile-mastery-wrapper' || el.id === 'mobile-speed-wrapper') {
-                            console.log('[mobile_note_highway] [toggle] Removed mobile-hidden from', el.id, '- classList now:', el.classList.toString());
-                            console.log('[mobile_note_highway] [toggle]  inline style.display:', el.style.display);
-                            console.log('[mobile_note_highway] [toggle]  computed display:', window.getComputedStyle(el).display);
-                        }
                     } else {
                         el.classList.add('mobile-hidden');
                     }
                 }
             });
-            
-            // Log final state AFTER re-scan
-            console.log('[mobile_note_highway] [toggle] Final state after re-scan:');
-            const finalMastery = document.getElementById('mobile-mastery-wrapper');
-            const finalSpeed = document.getElementById('mobile-speed-wrapper');
-            if (finalMastery) {
-                console.log('  mastery-wrapper: classList=', finalMastery.classList.toString(), 'inline display=', finalMastery.style.display, 'computed=', window.getComputedStyle(finalMastery).display);
-            }
-            if (finalSpeed) {
-                console.log('  speed-wrapper: classList=', finalSpeed.classList.toString(), 'inline display=', finalSpeed.style.display, 'computed=', window.getComputedStyle(finalSpeed).display);
-            }
             
             // Ensure close button stays transformed as Back icon at far left
             const closeButton = Array.from(controls.querySelectorAll('button')).find(btn => {
@@ -1212,8 +1152,6 @@
      * Remove Mobile Note Highway enhancements
      */
     function cleanup() {
-        //console.log('[mobile_note_highway] ❗ Cleanup called');
-        
         // Cancel all pending timeouts
         _pendingTimeouts.forEach(clearTimeout);
         _pendingTimeouts = [];
@@ -1302,8 +1240,6 @@
         }
         
         _toolsExpanded = false;
-        
-        //console.log('[mobile_note_highway] Cleanup complete');
     }
     
     // ═══════════════════════════════════════════════════════════════
@@ -1315,12 +1251,7 @@
      */
     function enhanceSectionMap() {
         const sectionMap = document.getElementById('section-map');
-        if (!sectionMap) {
-            //console.log('[mobile_note_highway] No section map found');
-            return;
-        }
-        
-        //console.log('[mobile_note_highway] Enhancing section map for mobile');
+        if (!sectionMap) return;
         
         // Store original styles for cleanup
         if (!_sectionMapOriginalStyles) {
@@ -1340,8 +1271,6 @@
             }
             label.style.display = 'none';
         });
-        
-        //console.log('[mobile_note_highway] Section map enhanced: 44px height, labels hidden');
     }
     
     /**
@@ -1350,8 +1279,6 @@
     function restoreSectionMap() {
         const sectionMap = document.getElementById('section-map');
         if (!sectionMap) return;
-        
-        //console.log('[mobile_note_highway] Restoring section map');
         
         // Restore height
         if (_sectionMapOriginalStyles) {
@@ -1375,12 +1302,7 @@
      */
     function adjustPlayerHud() {
         const playerHud = document.getElementById('player-hud');
-        if (!playerHud) {
-            //console.log('[mobile_note_highway] No player HUD found');
-            return;
-        }
-        
-        //console.log('[mobile_note_highway] Adjusting player HUD position');
+        if (!playerHud) return;
         
         // Store original styles for cleanup
         if (!_playerHudOriginalStyles) {
@@ -1391,8 +1313,6 @@
         
         // Push it below the section map (add some spacing)
         playerHud.style.top = CFG.playerHudTop + 'px';
-        
-        //console.log('[mobile_note_highway] Player HUD moved below section map');
     }
     
     /**
@@ -1401,8 +1321,6 @@
     function restorePlayerHud() {
         const playerHud = document.getElementById('player-hud');
         if (!playerHud) return;
-        
-        //console.log('[mobile_note_highway] Restoring player HUD');
         
         // Restore position
         if (_playerHudOriginalStyles) {
@@ -1415,17 +1333,10 @@
      * Adjust 3D Highway overlay canvas (where "Up Next" text is drawn)
      */
     function adjustHighway3dOverlay() {
-        // Skip if already adjusted to avoid infinite loop
         if (_highway3dAdjusted) return;
         
-        // The 3D highway plugin creates a .h3d-wrap div that contains the overlay canvas.
-        // The canvas position is managed by the 3D plugin, so we adjust the wrapper instead.
         const wrap = document.querySelector('.h3d-wrap');
-        
         if (!wrap) return;
-        
-        //console.log('[mobile_note_highway] Adjusting 3D highway wrapper (.h3d-wrap)...');
-        //console.log('[mobile_note_highway] Wrapper BEFORE - top:', wrap.style.top || 'not set');
         
         // Store original styles for cleanup (only once)
         if (!_highway3dOverlayOriginalStyles) {
@@ -1434,14 +1345,8 @@
             };
         }
         
-        // Push the entire wrapper down to clear section map + player HUD
-        // This moves the whole 3D highway overlay (lyrics, "Up Next" text, chord diagrams)
-        // Need enough space for: section map + player HUD text + small gap
         wrap.style.setProperty('top', CFG.highway3dTop + 'px', 'important');
         
-        //console.log('[mobile_note_highway] Wrapper AFTER - top:', wrap.style.top);
-        
-        // Mark as adjusted and stop all observation/retrying
         _highway3dAdjusted = true;
         
         // Stop retry interval
@@ -1455,49 +1360,31 @@
             _highway3dObserver.disconnect();
             _highway3dObserver = null;
         }
-        
-        //console.log('[mobile_note_highway] ✓ 3D highway wrapper adjusted successfully');
     }
     
     /**
      * Start observing for 3D highway overlay creation/changes
      */
     function startHighway3dObserver() {
-        //console.log('[mobile_note_highway] Starting 3D highway observer...');
-        
-        // Stop any existing observer
         stopHighway3dObserver();
-        
-        // Reset the adjusted flag
         _highway3dAdjusted = false;
-        
-        // Try to adjust immediately
         adjustHighway3dOverlay();
         
-        // Set up periodic retry every 500ms until it succeeds
         _highway3dRetryInterval = setInterval(() => {
             adjustHighway3dOverlay();
         }, 500);
         
-        // Watch for the .h3d-wrap to appear
         const player = document.getElementById('player');
-        if (!player) {
-            //console.log('[mobile_note_highway] ✗ No #player found');
-            return;
-        }
+        if (!player) return;
         
         _highway3dObserver = new MutationObserver(() => {
             adjustHighway3dOverlay();
         });
         
-        // Watch the player for new children (the .h3d-wrap gets added here)
-        // Don't watch style attributes - that causes infinite loop
         _highway3dObserver.observe(player, {
             childList: true,
             subtree: true
         });
-        
-        //console.log('[mobile_note_highway] ✓ Observer started (will retry every 500ms until 3D highway found)');
     }
     
     /**
@@ -1526,8 +1413,6 @@
         const wrap = document.querySelector('.h3d-wrap');
         if (!wrap) return;
         
-        //console.log('[mobile_note_highway] Restoring 3D highway wrapper');
-        
         // Restore wrapper position
         if (_highway3dOverlayOriginalStyles) {
             wrap.style.top = _highway3dOverlayOriginalStyles.top;
@@ -1547,21 +1432,10 @@
      */
     function enableHighwayGestures() {
         const highway = document.getElementById('highway');
-        //console.log('[mobile_note_highway] enableHighwayGestures called');
-        //console.log('[mobile_note_highway] highway element:', highway);
-        
-        if (!highway) {
-            //console.warn('[mobile_note_highway] ✗ No highway canvas found for gestures');
-            return;
-        }
-        
-        //console.log('[mobile_note_highway] ✓ Enabling highway gestures (swipe left/right, single tap)');
-        //console.log('[mobile_note_highway] Highway dimensions:', highway.offsetWidth, 'x', highway.offsetHeight);
+        if (!highway) return;
         
         highway.addEventListener('touchstart', onGestureStart, { passive: true });
         highway.addEventListener('touchend', onGestureEnd, { passive: false });
-        
-        //console.log('[mobile_note_highway] ✓ Touch event listeners attached');
     }
     
     /**
@@ -1571,8 +1445,6 @@
         const highway = document.getElementById('highway');
         if (!highway) return;
         
-        //console.log('[mobile_note_highway] Disabling highway gestures');
-        
         highway.removeEventListener('touchstart', onGestureStart);
         highway.removeEventListener('touchend', onGestureEnd);
     }
@@ -1581,50 +1453,29 @@
      * Handle touch start for gesture detection
      */
     function onGestureStart(e) {
-        //console.log('[mobile_note_highway] touchstart event fired');
-        //console.log('[mobile_note_highway] touches:', e.touches ? e.touches.length : 'none');
-        
-        if (!e.touches || e.touches.length !== 1) {
-            //console.log('[mobile_note_highway] Ignoring - not single touch');
-            return;
-        }
+        if (!e.touches || e.touches.length !== 1) return;
         
         const touch = e.touches[0];
         _gestureStartX = touch.clientX;
         _gestureStartY = touch.clientY;
         _gestureStartTime = Date.now();
         _gestureActive = true;
-        
-        //console.log('[mobile_note_highway] Gesture started at:', _gestureStartX, ',', _gestureStartY);
     }
     
     /**
      * Handle touch end for gesture detection
      */
     function onGestureEnd(e) {
-        //console.log('[mobile_note_highway] touchend event fired');
-        //console.log('[mobile_note_highway] _gestureActive:', _gestureActive);
-        
-        if (!_gestureActive) {
-            //console.log('[mobile_note_highway] No active gesture');
-            return;
-        }
-        
-        if (!e.changedTouches || e.changedTouches.length !== 1) {
-            //console.log('[mobile_note_highway] Ignoring - not single touch end');
-            return;
-        }
+        if (!_gestureActive) return;
+        if (!e.changedTouches || e.changedTouches.length !== 1) return;
         
         const touch = e.changedTouches[0];
         const deltaX = touch.clientX - _gestureStartX;
         const deltaY = touch.clientY - _gestureStartY;
         const deltaTime = Date.now() - _gestureStartTime;
         
-        //console.log('[mobile_note_highway] Touch ended - deltaX:', deltaX, 'deltaY:', deltaY, 'deltaTime:', deltaTime);
-        
         _gestureActive = false;
         
-        // Check for tap (quick touch with minimal movement)
         const isQuickTap = deltaTime < CFG.tapMaxDurationMs && Math.abs(deltaX) < CFG.tapMaxMovementPx && Math.abs(deltaY) < CFG.tapMaxMovementPx;
         
         if (isQuickTap) {
@@ -1662,18 +1513,13 @@
             return;
         }
         
-        // Check for swipe (horizontal > threshold, quick, mostly horizontal)
         const isSwipe = Math.abs(deltaX) > CFG.swipeHorizontalThreshold && deltaTime < CFG.swipeMaxDurationMs && Math.abs(deltaX) > Math.abs(deltaY) * 1.5;
-        //console.log('[mobile_note_highway] isSwipe:', isSwipe, '(|deltaX| > 50 && deltaTime < 500 && horizontal)');
         
         if (isSwipe) {
-            //console.log('[mobile_note_highway] ✓ SWIPE DETECTED:', deltaX > 0 ? 'right' : 'left');
             e.preventDefault();
             handleSwipe(deltaX > 0 ? 'right' : 'left');
             return;
         }
-        
-        //console.log('[mobile_note_highway] No gesture recognized');
     }
     
     /**
@@ -1748,37 +1594,23 @@
      * Handle swipe gesture (Seek ±5 seconds)
      */
     function handleSwipe(direction) {
-        //console.log('[mobile_note_highway] handleSwipe called, direction:', direction);
-        
         const audio = document.getElementById('audio');
-        if (!audio) {
-            //console.warn('[mobile_note_highway] No audio element found');
-            return;
-        }
+        if (!audio) return;
         
         const seekAmount = direction === 'right' ? 5 : -5;
         const currentTime = audio.currentTime;
         const newTime = Math.max(0, Math.min(audio.duration || 0, currentTime + seekAmount));
         
-        //console.log('[mobile_note_highway] Seeking from', Math.floor(currentTime), 's to', Math.floor(newTime), 's');
-        
-        // Update lastAudioTime to prevent the jump detector from resetting
         if (typeof lastAudioTime !== 'undefined') lastAudioTime = newTime;
         
         audio.currentTime = newTime;
-        
         showGestureFeedback(direction === 'right' ? '+5s' : '-5s');
-        
-        //console.log('[mobile_note_highway] ✓ Seeked to', Math.floor(newTime), 's');
     }
     
     /**
      * Show visual feedback for gesture actions
      */
     function showGestureFeedback(text) {
-        //console.log('[mobile_note_highway] showGestureFeedback:', text);
-        
-        // Remove any existing feedback
         const existing = document.getElementById('gesture-feedback');
         if (existing) existing.remove();
         
@@ -1832,18 +1664,11 @@
      */
     function enableControlsGestures() {
         const controls = document.getElementById('player-controls');
-        if (!controls) {
-            //console.log('[mobile_note_highway] No player-controls found for gestures');
-            return;
-        }
-        
-        //console.log('[mobile_note_highway] ✓ Enabling controls gestures (swipe up/down)');
+        if (!controls) return;
         
         controls.addEventListener('touchstart', onControlsGestureStart, { passive: true });
         controls.addEventListener('touchmove', onControlsGestureMove, { passive: false });
         controls.addEventListener('touchend', onControlsGestureEnd, { passive: false });
-        
-        //console.log('[mobile_note_highway] ✓ Controls gesture listeners attached');
     }
     
     /**
@@ -1852,8 +1677,6 @@
     function disableControlsGestures() {
         const controls = document.getElementById('player-controls');
         if (!controls) return;
-        
-        //console.log('[mobile_note_highway] Disabling controls gestures');
         
         controls.removeEventListener('touchstart', onControlsGestureStart);
         controls.removeEventListener('touchmove', onControlsGestureMove);
@@ -1904,23 +1727,16 @@
         
         _controlsGestureActive = false;
         
-        // Detect vertical swipe (threshold + max duration, mostly vertical)
         const isSwipe = Math.abs(deltaY) > CFG.swipeVerticalThreshold && deltaTime < CFG.swipeMaxDurationMs;
         
         if (!isSwipe) return;
         
-        //console.log('[mobile_note_highway] Controls swipe detected: deltaY =', deltaY);
-        
-        // Swipe up (positive deltaY) = expand, swipe down (negative deltaY) = collapse
         if (deltaY > 0 && !_toolsExpanded) {
-            // Swipe up to expand
             toggleAdvancedControls();
         } else if (deltaY < 0 && _toolsExpanded) {
-            // Swipe down to collapse
             toggleAdvancedControls();
         }
         
-        // Prevent any click events from firing
         e.preventDefault();
     }
     
@@ -1932,11 +1748,7 @@
      * Initialize Mobile Note Highway plugin
      */
     function init() {
-        // Only activate on phone / tablet; not on desktop
-        if (!isMobile()) {
-            // console.log('[mobile_note_highway] Desktop detected - not activating');
-            return;
-        }
+        if (!isMobile()) return;
         
         console.log('[mobile_note_highway] Activating on device:', DEVICE);
         
@@ -1946,14 +1758,10 @@
         // Setup resize listener
         setupResizeListener();
         
-        // Listen for screen changes
         window.slopsmith.on('screen:changed', (e) => {
             const screenId = e.detail.id || e.detail.screen;
-            //console.log('[mobile_note_highway] 🔄 Screen changed to:', screenId);
             
             if (screenId === 'player') {
-                //console.log('[mobile_note_highway] Player screen detected - enhancing controls');
-                // Give the player screen time to render (100ms)
                 scheduleEnhancement(enhancePlayerControls, 100);
                 // Section map might already exist or appear soon (200ms)
                 scheduleEnhancement(enhanceSectionMap, 200);
@@ -1965,11 +1773,8 @@
                 scheduleEnhancement(enableControlsGestures, 150);
                 // Start observing 3D highway overlay (500ms - needs more time to load)
                 scheduleEnhancement(startHighway3dObserver, 500);
-                // Sync loop state
                 scheduleEnhancement(syncLoopMarkerState, 100);
             } else {
-                // Clean up when leaving player
-                //console.log('[mobile_note_highway] 🚪 Leaving player screen (now on:', screenId, ')');
                 cleanup();
                 restoreSectionMap();
                 restorePlayerHud();
@@ -1988,22 +1793,14 @@
                 _pendingTimeouts = [];
                 
                 await origPlaySong(filename, arrangement);
-                //console.log('[mobile_note_highway] playSong completed - re-enhancing');
                 
-                // Sync loop marker state from actual loop values
                 syncLoopMarkerState();
                 
-                // Re-apply control order values (fixes misalignment on re-entry without recreating wrappers)
                 scheduleEnhancement(reapplyControlOrder, 50);
-                // Section map gets created after playSong, give it time (300ms for section_map plugin to render)
                 scheduleEnhancement(enhanceSectionMap, 300);
-                // Adjust HUD position (same timing as section map)
                 scheduleEnhancement(adjustPlayerHud, 300);
-                // Re-enable gestures (400ms - highway canvas recreates after WebSocket ready)
                 scheduleEnhancement(enableHighwayGestures, 400);
-                // Re-enable controls gestures (150ms - controls already exist)
                 scheduleEnhancement(enableControlsGestures, 150);
-                // Re-observe 3D highway overlay (600ms - it recreates on song change, needs time)
                 scheduleEnhancement(startHighway3dObserver, 600);
             };
         }
@@ -2033,21 +1830,15 @@
             };
         }
         
-        // If we're already on the player screen, enhance it now
         const currentScreen = window.slopsmith.getCurrentScreen?.();
-       // console.log('[mobile_note_highway] 🎬 Init check - current screen:', currentScreen);
         if (currentScreen === 'player') {
-            //console.log('[mobile_note_highway] Already on player screen - enhancing');
             scheduleEnhancement(enhancePlayerControls, 100);
             scheduleEnhancement(enhanceSectionMap, 200);
             scheduleEnhancement(adjustPlayerHud, 200);
             scheduleEnhancement(enableHighwayGestures, 300);
             scheduleEnhancement(enableControlsGestures, 150);
             scheduleEnhancement(startHighway3dObserver, 500);
-            // Sync loop state on init
             scheduleEnhancement(syncLoopMarkerState, 100);
-        } else {
-            console.log('[mobile_note_highway] Not on player screen, waiting for screen:changed event');
         }
     }
     
