@@ -1,10 +1,22 @@
 # Mobile Note Highway
 
-**v1.0.0** — Take your practice mobile.
+**v1.0.0** — Initial release. Expect bugs and rough edges.
 
-A touch-optimized note highway player plugin for [Slopsmith](https://github.com/slopsmith/slopsmith) that transforms the player experience on phones and tablets. Collapsible controls, intuitive gestures, and device-adaptive layouts let you focus on playing — not fumbling with tiny buttons.
+A touch-optimized note highway player plugin for [Slopsmith](https://github.com/slopsmith/slopsmith) that transforms the player experience on phones and tablets. Collapsible controls, intuitive gestures, and device-adaptive layouts let you focus on playing.
 
 **Tested on iOS (portrait mode).** Android compatibility expected but unverified.
+
+### Phone View
+
+<img width="300" alt="Phone collapsed view" src="https://github.com/user-attachments/assets/945c5a8b-c3b4-4abf-b863-a46c3488f3d8" /> <img width="300" alt="Phone expanded view" src="https://github.com/user-attachments/assets/ef0cebfc-23e0-4d2e-b710-0096f177dcde" />
+
+*Collapsed view shows essentials (back, play, arrangement). Swipe up to reveal all controls.*
+
+### Tablet View
+
+<img width="450" alt="Tablet collapsed view" src="https://github.com/user-attachments/assets/50a5d8be-2895-41b1-a220-5bb7423d4603" /> <img width="450" alt="Tablet expanded view" src="https://github.com/user-attachments/assets/85977b57-dc8a-42ab-9ecf-a9df1b4f3626" />
+
+*Collapsed view includes difficulty and speed sliders. Expanded view reveals full control panel with proper spacing.*
 
 ## Features
 
