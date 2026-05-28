@@ -602,6 +602,7 @@
             
             // Create column wrapper
             const avWrapper = document.createElement('div');
+            avWrapper.id = 'mobile-av-wrapper';  // Unique ID for later targeting
             avWrapper.style.display = 'inline-flex';
             avWrapper.style.flexDirection = 'column';
             avWrapper.style.alignItems = 'center';
@@ -662,10 +663,8 @@
         // Also set order for non-priority controls
         let hiddenCount = 0;
         Array.from(controls.children).forEach(el => {
-            // Set order for non-priority controls (not back/play/arr/diff/speed)
+            // Set order for non-priority controls (back/play/arr/seekBy are priority, mobile-* excluded)
             const isPriority = el.id === 'arr-select' || 
-                              el.id === 'mobile-mastery-wrapper' || 
-                              el.id === 'mobile-speed-wrapper' ||
                               el.id === 'mobile-back-btn' ||
                               el.id === 'btn-play' ||
                               (el.tagName === 'BUTTON' && el.getAttribute('onclick')?.includes('seekBy('));
@@ -775,6 +774,13 @@
             _speedWrapperEl.style.marginRight = '0';
             console.log('[mobile_ui] speed-wrapper order=3');
         }
+        
+        // A/V offset wrapper gets order 100 (non-essential, appears after priority controls)
+        const _avWrapperEl = document.getElementById('mobile-av-wrapper');
+        if (_avWrapperEl) {
+            _avWrapperEl.style.order = '100';
+            console.log('[mobile_ui] av-wrapper order=100');
+        }
 
         // Ensure controls container has position: relative for absolute positioning
         controls.style.position = 'relative';
@@ -791,6 +797,71 @@
             closeButton.style.marginLeft = '0';
             closeButton.style.marginRight = '12px';
         }
+    }
+    
+    /**
+     * Reapply control order values without recreating wrappers.
+     * Used on song re-entry to fix misalignment.
+     */
+    function reapplyControlOrder() {
+        const arrSelect = document.getElementById('arr-select');
+        const masteryWrapper = document.getElementById('mobile-mastery-wrapper');
+        const speedWrapper = document.getElementById('mobile-speed-wrapper');
+        
+        if (arrSelect) {
+            arrSelect.style.order = '1';
+            arrSelect.style.marginLeft = '12px';
+            arrSelect.style.marginRight = (!IS_TABLET && _toolsExpanded) ? 'auto' : '0';
+        }
+        
+        if (masteryWrapper) {
+            masteryWrapper.style.order = '2';
+            masteryWrapper.style.marginLeft = '0';
+        }
+        
+        if (speedWrapper) {
+            speedWrapper.style.order = '3';
+            speedWrapper.style.marginLeft = '0';
+            speedWrapper.style.marginRight = '0';
+        }
+        
+        // A/V offset wrapper gets order 100 (non-essential)
+        const avWrapper = document.getElementById('mobile-av-wrapper');
+        if (avWrapper) {
+            avWrapper.style.order = '100';
+        }
+        
+        // Re-set wrapper display (can get cleared on song change)
+        if (masteryWrapper) {
+            masteryWrapper.style.display = 'inline-flex';
+        }
+        if (speedWrapper) {
+            speedWrapper.style.display = 'inline-flex';
+        }
+        if (avWrapper) {
+            avWrapper.style.display = 'inline-flex';
+        }
+        
+        // Reset slider heights (they get overridden to 44px)
+        const speedSlider = document.getElementById('speed-slider');
+        const masterySlider = document.getElementById('mastery-slider');
+        const avSlider = document.getElementById('player-av-offset-slider');
+        
+        if (speedSlider) {
+            speedSlider.style.minHeight = 'auto';
+            speedSlider.style.height = CFG.sliderTrackHeight + 'px';
+        }
+        if (masterySlider) {
+            masterySlider.style.minHeight = 'auto';
+            masterySlider.style.height = CFG.sliderTrackHeight + 'px';
+        }
+        if (avSlider) {
+            avSlider.style.minHeight = 'auto';
+            avSlider.style.height = CFG.sliderTrackHeight + 'px';
+        }
+        
+        // Re-classify controls to fix visibility (the actual fix for missing sliders)
+        reclassifyAllControls();
     }
     
     /**
@@ -816,10 +887,8 @@
             if (el.id === 'mobile-swipe-indicator') return;
             if (el.id === 'mobile-end-spacer') return;
             
-            // Set order for non-priority controls
+            // Set order for non-priority controls (back/play/arr/seekBy are priority, mobile-* excluded)
             const isPriority = el.id === 'arr-select' || 
-                              el.id === 'mobile-mastery-wrapper' || 
-                              el.id === 'mobile-speed-wrapper' ||
                               el.id === 'mobile-back-btn' ||
                               el.id === 'btn-play' ||
                               (el.tagName === 'BUTTON' && el.getAttribute('onclick')?.includes('seekBy('));
@@ -897,6 +966,14 @@
                             if (node.id === 'mobile-swipe-indicator') return;
                             if (node.id === 'mobile-end-spacer') return;
                             
+                            // Skip elements inside wrappers - wrappers manage their children
+                            const parentId = node.parentElement?.id;
+                            if (parentId === 'mobile-mastery-wrapper' || 
+                                parentId === 'mobile-speed-wrapper' || 
+                                parentId === 'mobile-av-wrapper') {
+                                return;
+                            }
+                            
                             // Apply touch-friendly styling to buttons
                             if (node.tagName === 'BUTTON') {
                                 node.classList.add('mobile-button');
@@ -915,6 +992,14 @@
                         // Skip our injected helpers
                         if (target.id === 'mobile-swipe-indicator') return;
                         if (target.id === 'mobile-end-spacer') return;
+                        
+                        // Skip elements inside wrappers - wrappers manage their children
+                        const parentId = target.parentElement?.id;
+                        if (parentId === 'mobile-mastery-wrapper' || 
+                            parentId === 'mobile-speed-wrapper' || 
+                            parentId === 'mobile-av-wrapper') {
+                            return;
+                        }
                         
                         if (target.nodeType === Node.ELEMENT_NODE && !isEssentialControl(target)) {
                             // If mobile-hide-advanced class was wiped, re-add it
@@ -1010,6 +1095,13 @@
             speedWrapper.style.marginRight = '0';
             console.log('[mobile_ui] [toggle] speed-wrapper order=3');
         }
+        
+        // A/V offset wrapper gets order 100 (non-essential)
+        const avWrapper = document.getElementById('mobile-av-wrapper');
+        if (avWrapper) {
+            avWrapper.style.order = '100';
+            console.log('[mobile_ui] [toggle] av-wrapper order=100');
+        }
 
         // Close button: keep transformed into a Back icon at far left
         if (controls) {
@@ -1033,10 +1125,8 @@
                 if (el.id === 'mobile-swipe-indicator') return;
                 if (el.id === 'mobile-end-spacer') return;
                 
-                // Set order for non-priority controls
+                // Set order for non-priority controls (back/play/arr/seekBy are priority, mobile-* excluded)
                 const isPriority = el.id === 'arr-select' || 
-                                  el.id === 'mobile-mastery-wrapper' || 
-                                  el.id === 'mobile-speed-wrapper' ||
                                   el.id === 'mobile-back-btn' ||
                                   el.id === 'btn-play' ||
                                   (el.tagName === 'BUTTON' && el.getAttribute('onclick')?.includes('seekBy('));
@@ -1898,6 +1988,8 @@
                 // Sync loop marker state from actual loop values
                 syncLoopMarkerState();
                 
+                // Re-apply control order values (fixes misalignment on re-entry without recreating wrappers)
+                scheduleEnhancement(reapplyControlOrder, 50);
                 // Section map gets created after playSong, give it time (300ms for section_map plugin to render)
                 scheduleEnhancement(enhanceSectionMap, 300);
                 // Adjust HUD position (same timing as section map)

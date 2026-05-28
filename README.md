@@ -61,14 +61,14 @@ The plugin activates automatically when you open a song on a phone or tablet.
 - **Tap** → jump to that position instantly
 
 **What's visible by default:**
-- **Phone:** Play, speed slider, time, close button
-- **Tablet:** Play, speed, difficulty, arrangement, close button
+- **Phone:** Back button, play controls, arrangement selector
+- **Tablet:** Back button, play controls, arrangement selector, difficulty slider, speed slider
 
 **Hidden until you swipe up:**
 - Loop controls (A/B buttons)
 - Visualization picker
 - Audio mixer
-- A/V offset
+- A/V offset slider
 - Quality/HD selector
 - All plugin buttons (fretboard, tones, detect, step mode, etc.)
 
