@@ -463,7 +463,6 @@
     function handleResize() {
         const newDevice = detectDevice();
         if (newDevice !== DEVICE) {
-            console.log('[mobile_note_highway] Device changed:', DEVICE, '->', newDevice);
             DEVICE = newDevice;
             CFG = CONFIG[DEVICE] || CONFIG.phone;
             IS_TABLET = DEVICE === 'tablet';
@@ -1368,8 +1367,6 @@
         document.addEventListener('touchmove', onDragMove);
         document.addEventListener('mouseup', onDragEnd);
         document.addEventListener('touchend', onDragEnd);
-        
-        console.log('[mobile_note_highway] Section map live update enabled (with whoosh)');
     }
     
     /**
@@ -1591,13 +1588,11 @@
      */
     function initWhoosh() {
         if (_whoosh.context) {
-            console.log('[mobile_note_highway] Whoosh already initialized, state:', _whoosh.context.state);
             return; // Already initialized
         }
         
         try {
             _whoosh.context = new (window.AudioContext || window.webkitAudioContext)();
-            console.log('[mobile_note_highway] ✅ Whoosh audio initialized, state:', _whoosh.context.state, 'sampleRate:', _whoosh.context.sampleRate);
         } catch (err) {
             console.error('[mobile_note_highway] ❌ Whoosh init failed:', err);
         }
@@ -1624,16 +1619,12 @@
         try {
             // Check if audio feedback is enabled
             if (!getAudioEnabled()) {
-                console.log('[mobile_note_highway] Audio feedback disabled, skipping whoosh');
                 return;
             }
-            
-            console.log('[mobile_note_highway] 🌀 startWhoosh called, context state:', _whoosh.context.state);
             
             // Resume context if suspended (iOS requirement) - must await!
             if (_whoosh.context.state === 'suspended') {
                 await _whoosh.context.resume();
-                console.log('[mobile_note_highway] ✅ AudioContext resumed, new state:', _whoosh.context.state);
             }
             
             _whoosh.type = getWhooshType();
@@ -1777,7 +1768,6 @@
             _whoosh.source.start();
             _whoosh.active = true;
             
-            console.log('[mobile_note_highway] ✅ Whoosh started (' + getWhooshType() + '), velocity:', velocity.toFixed(1), 'gain:', _whoosh.gain.gain.value);
         } catch (err) {
             console.error('[mobile_note_highway] ❌ Whoosh start failed:', err);
         }
@@ -1967,7 +1957,6 @@
             }
         } catch (err) { /* ignore */ }
         
-        console.log('[mobile_note_highway] 🌀 Whoosh stopped');
     }
     
     // ═══════════════════════════════════════════════════════════════
@@ -2016,11 +2005,6 @@
         _highway.scrubLastUpdate = 0;
         _highway.scrubLastDeltaY = 0;
         
-        console.log('[mobile_note_highway] touchstart:', {
-            x: touch.clientX,
-            y: touch.clientY,
-            audioTime: _highway.scrubStartTime
-        });
     }
     
     /**
@@ -2028,7 +2012,6 @@
      */
     function onGestureMove(e) {
         if (!_highway.gestureActive) {
-            console.log('[mobile_note_highway] touchmove ignored - gestureActive=false');
             return;
         }
         if (!e.touches || e.touches.length !== 1) return;
@@ -2042,14 +2025,6 @@
             e.preventDefault();
         }
         
-        console.log('[mobile_note_highway] touchmove:', {
-            deltaX,
-            deltaY,
-            absDeltaY: Math.abs(deltaY),
-            threshold: CFG.scrubMinMovement,
-            scrubActive: _highway.scrubActive
-        });
-        
         // Enter scrub mode if vertical movement exceeds threshold
         if (!_highway.scrubActive && Math.abs(deltaY) > CFG.scrubMinMovement) {
             _highway.scrubActive = true;
@@ -2060,7 +2035,6 @@
             // Initialize whoosh audio context
             initWhoosh();
             
-            console.log('[mobile_note_highway] ✅ SCRUB MODE ACTIVATED, wasPlaying:', _highway.wasPlayingBeforeScrub);
         }
         
         // If in scrub mode, update audio position
@@ -2073,7 +2047,6 @@
             
             const audio = document.getElementById('audio');
             if (!audio) {
-                console.log('[mobile_note_highway] No audio element');
                 return;
             }
             
@@ -2097,14 +2070,6 @@
             const timeDelta = deltaY * CFG.scrubTimePerPixel * sensitivity;
             const newTime = Math.max(0, Math.min(audio.duration || 0, _highway.scrubStartTime + timeDelta));
             
-            console.log('[mobile_note_highway] Scrubbing:', {
-                deltaY,
-                velocity: velocity.toFixed(1),
-                newTime: newTime.toFixed(2),
-                whooshActive: _whoosh.active,
-                absVelocity: Math.abs(velocity)
-            });
-            
             // Update lastAudioTime to prevent jump detector from resetting
             if (typeof lastAudioTime !== 'undefined') lastAudioTime = newTime;
             
@@ -2113,7 +2078,6 @@
             
             // Start or update whoosh sound based on velocity (lowered threshold for easier triggering)
             if (!_whoosh.active && Math.abs(velocity) > 30) {
-                console.log('[mobile_note_highway] 🌀 Attempting to start whoosh, velocity:', velocity.toFixed(1));
                 startWhoosh(velocity);
             } else if (_whoosh.active) {
                 updateWhoosh(velocity);
@@ -2134,13 +2098,6 @@
         const deltaTime = Date.now() - _highway.gestureStartTime;
         
         const wasScrubbing = _highway.scrubActive;
-         
-        console.log('[mobile_note_highway] touchend:', {
-            deltaX,
-            deltaY,
-            deltaTime,
-            wasScrubbing
-        });
         
         _highway.gestureActive = false;
         _highway.scrubActive = false;
@@ -2163,7 +2120,6 @@
                 }
             }
             
-            console.log('[mobile_note_highway] Exiting scrub mode, playbackRate restored to 1.0');
             return;
         }
         
@@ -2643,7 +2599,6 @@
     window.mnhSetWhooshType = function(type) {
         try {
             localStorage.setItem('mobile_note_highway.whooshType', type);
-            console.log('[mobile_note_highway] Whoosh type changed to:', type);
         } catch (err) {
             console.error('[mobile_note_highway] Failed to save whoosh type:', err);
         }
@@ -2652,7 +2607,6 @@
     window.mnhSetAudioEnabled = function(enabled) {
         try {
             localStorage.setItem('mobile_note_highway.audioEnabled', String(enabled));
-            console.log('[mobile_note_highway] Audio feedback', enabled ? 'enabled' : 'disabled');
             // Stop any active whoosh if disabling
             if (!enabled && _whoosh.active) {
                 stopWhoosh();
@@ -2666,7 +2620,6 @@
         try {
             const sensitivity = parseFloat(value);
             localStorage.setItem('mobile_note_highway.scrubSensitivity', String(sensitivity));
-            console.log('[mobile_note_highway] Scrub sensitivity changed to:', sensitivity.toFixed(1) + 'x');
         } catch (err) {
             console.error('[mobile_note_highway] Failed to save scrub sensitivity:', err);
         }
@@ -2678,7 +2631,6 @@
             // For tablet, value is an array; for phone, it's a string
             const storedValue = Array.isArray(value) ? value.slice(0, 3).join(',') : value;
             localStorage.setItem(key, storedValue);
-            console.log('[mobile_note_highway] Collapsed controls (' + device + '):', storedValue);
             // TODO: Implement actual show/hide logic
         } catch (err) {
             console.error('[mobile_note_highway] Failed to save collapsed control setting:', err);
