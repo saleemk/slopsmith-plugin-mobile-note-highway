@@ -78,8 +78,8 @@ Open any song on your phone or tablet — the plugin activates automatically.
 - **Tap** → jump to that position instantly
 
 **What's visible by default:**
-- **Phone:** Back button, seek buttons, play controls, 1 additional control (arrangement selector by default)
-- **Tablet:** Back button, seek buttons, play controls, up to 3 additional controls (arrangement selector, difficulty slider, speed slider by default)
+- **Phone:** Back button, seek buttons, play controls, arrangement selector
+- **Tablet:** Back button, seek buttons, play controls, arrangement selector, difficulty slider, speed slider
 
 **Hidden until you swipe up:**
 - Loop controls (A/B buttons)
@@ -89,8 +89,6 @@ Open any song on your phone or tablet — the plugin activates automatically.
 - Quality/HD selector
 - Lyrics toggle
 - All plugin buttons (fretboard, tones, detect, step mode, etc.)
-
-**Customize collapsed view:** Go to **Settings → Mobile Note Highway** to choose which controls appear when collapsed. Phone allows 1 additional control, tablet allows up to 3.
 
 All gestures show brief visual feedback confirming the action.
 
@@ -108,10 +106,6 @@ Gesture detection, layout adjustments, and control hiding happen automatically. 
 
 Customize the plugin in **Settings → Mobile Note Highway**:
 
-- **Collapsed View Controls** - Choose which controls appear when collapsed
-  - Phone: Select 1 additional control (default: arrangement selector)
-  - Tablet: Select up to 3 additional controls (default: arrangement, difficulty, speed)
-  - Seek and play buttons always visible
 - **Scrub Sensitivity** - Adjust how responsive vertical scrubbing feels (0.5x - 2.0x)
 - **Audio Feedback** - Enable/disable whoosh sound and choose from 9 sound types:
   - `tape_flutter` (default), `sawtooth`, `sine`, `whitenoise`, `rumble`, `crackle`, `clicks`, `vinyl_scratch`, `mechanical`
@@ -128,7 +122,7 @@ The plugin should work on Android devices but has not been tested. If you encoun
 
 Future improvements planned:
 
-- ~~**Configurable essential controls** - Let users customize which controls appear in collapsed view~~
+- **Configurable essential controls** - Let users customize which controls appear in collapsed view
 - **Landscape optimization** - Better layout and spacing for horizontal orientation
 - **Expanded view organization** - Group related buttons and plugins into categorized sections (Practice/Audio/Visual/Plugins) using CSS Grid for cleaner, more intuitive control layout
 - ~~**Gesture refinement** - Re-evaluate swipe left/right behavior for better seek control~~

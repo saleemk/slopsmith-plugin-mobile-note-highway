@@ -1,0 +1,229 @@
+<!-- Collapsed View Controls - DISABLED UNTIL IMPLEMENTATION COMPLETE
+<div role="group" aria-labelledby="mnh-controls-heading">
+    <h3 id="mnh-controls-heading" class="text-sm font-medium text-gray-400 mb-2">Mobile Note Highway — Collapsed View Controls</h3>
+    <p class="text-xs text-gray-500 mb-3">
+        Choose which additional controls are visible in collapsed view besides seek and play buttons.
+    </p>
+
+    <h4 class="text-xs font-medium text-gray-400 mb-2 mt-4">Phone (Portrait)</h4>
+    <p class="text-xs text-gray-500 mb-2">Select 1 additional control:</p>
+    <select id="mnh-ctrl-phone" size="9" 
+        onchange="window.mnhSetCollapsedControl && window.mnhSetCollapsedControl('phone', this.value)"
+        class="w-full bg-dark-700 border border-gray-600 rounded text-xs text-gray-300 focus:ring-accent/40 focus:border-accent">
+        <option value="arrangement">Arrangement selector</option>
+        <option value="speed">Speed slider</option>
+        <option value="difficulty">Difficulty slider</option>
+        <option value="loop">Loop controls (A/B buttons)</option>
+        <option value="viz">Visualization picker</option>
+        <option value="mixer">Audio mixer</option>
+        <option value="quality">Quality selector (HD/Low)</option>
+        <option value="avoffset">A/V offset slider</option>
+        <option value="lyrics">Lyrics toggle</option>
+    </select>
+
+    <h4 class="text-xs font-medium text-gray-400 mb-2 mt-4">Tablet</h4>
+    <p class="text-xs text-gray-500 mb-2">Select up to 3 additional controls (Ctrl+Click or Cmd+Click):</p>
+    <select id="mnh-ctrl-tablet" size="9" multiple
+        class="w-full bg-dark-700 border border-gray-600 rounded text-xs text-gray-300 focus:ring-accent/40 focus:border-accent">
+        <option value="arrangement">Arrangement selector</option>
+        <option value="speed">Speed slider</option>
+        <option value="difficulty">Difficulty slider</option>
+        <option value="loop">Loop controls (A/B buttons)</option>
+        <option value="viz">Visualization picker</option>
+        <option value="mixer">Audio mixer</option>
+        <option value="quality">Quality selector (HD/Low)</option>
+        <option value="avoffset">A/V offset slider</option>
+        <option value="lyrics">Lyrics toggle</option>
+    </select>
+
+    <button id="mnh-ctrl-reset" 
+        class="mt-4 px-3 py-1.5 bg-dark-700 hover:bg-dark-600 border border-gray-600 rounded text-xs text-gray-300 transition-colors">
+        Reset to Defaults
+    </button>
+
+    <p class="text-xs text-gray-500 mt-3">
+        Note: Plugin buttons are not configurable here. Changes take effect when collapsing/expanding controls.
+    </p>
+
+    <script>
+    (function () {
+        // Restore saved preferences
+        try {
+            // Phone: single selection
+            const phoneSelect = document.getElementById('mnh-ctrl-phone');
+            if (phoneSelect) {
+                const phoneSaved = localStorage.getItem('mobile_note_highway.collapsed.phone');
+                const phoneDefault = 'arrangement';
+                const phoneValue = phoneSaved || phoneDefault;
+                phoneSelect.value = phoneValue;
+                
+                // Add change listener
+                phoneSelect.addEventListener('change', function() {
+                    if (window.mnhSetCollapsedControl) {
+                        window.mnhSetCollapsedControl('phone', this.value);
+                    }
+                });
+            }
+
+            // Tablet: multiple selection (up to 3)
+            const tabletSelect = document.getElementById('mnh-ctrl-tablet');
+            if (tabletSelect) {
+                const tabletSaved = localStorage.getItem('mobile_note_highway.collapsed.tablet');
+                const tabletDefault = 'arrangement,difficulty,speed';
+                const tabletValues = tabletSaved ? tabletSaved.split(',') : tabletDefault.split(',');
+                
+                Array.from(tabletSelect.options).forEach(opt => {
+                    opt.selected = tabletValues.includes(opt.value);
+                });
+                
+                // Add change listener with 3-item limit enforcement
+                tabletSelect.addEventListener('change', function() {
+                    const selected = Array.from(this.selectedOptions).map(o => o.value);
+                    
+                    // Enforce 3-item limit
+                    if (selected.length > 3) {
+                        // Keep only the first 3
+                        Array.from(this.options).forEach((opt, idx) => {
+                            opt.selected = selected.slice(0, 3).includes(opt.value);
+                        });
+                        
+                        if (window.mnhSetCollapsedControl) {
+                            window.mnhSetCollapsedControl('tablet', selected.slice(0, 3));
+                        }
+                    } else {
+                        if (window.mnhSetCollapsedControl) {
+                            window.mnhSetCollapsedControl('tablet', selected);
+                        }
+                    }
+                });
+            }
+            
+            // Reset button
+            const resetBtn = document.getElementById('mnh-ctrl-reset');
+            if (resetBtn) {
+                resetBtn.addEventListener('click', function() {
+                    // Reset phone to default
+                    if (phoneSelect) {
+                        phoneSelect.value = 'arrangement';
+                        if (window.mnhSetCollapsedControl) {
+                            window.mnhSetCollapsedControl('phone', 'arrangement');
+                        }
+                    }
+                    
+                    // Reset tablet to default
+                    if (tabletSelect) {
+                        const tabletDefaults = ['arrangement', 'difficulty', 'speed'];
+                        Array.from(tabletSelect.options).forEach(opt => {
+                            opt.selected = tabletDefaults.includes(opt.value);
+                        });
+                        if (window.mnhSetCollapsedControl) {
+                            window.mnhSetCollapsedControl('tablet', tabletDefaults);
+                        }
+                    }
+                });
+            }
+        } catch (err) {
+            console.error('[mobile_note_highway] Failed to restore collapsed control settings:', err);
+        }
+    })();
+    </script>
+</div>
+-->
+
+<div role="group" aria-labelledby="mnh-scrub-heading">
+    <h3 id="mnh-scrub-heading" class="text-sm font-medium text-gray-400 mb-2">Mobile Note Highway — Scrub Behavior</h3>
+    
+    <!-- Scrub Sensitivity -->
+    <div class="mt-3">
+        <label for="mnh-scrub-sensitivity" class="text-xs font-medium text-gray-400 mb-1 block">
+            Scrub sensitivity: <span id="mnh-scrub-sensitivity-label">1.0x</span>
+        </label>
+        <input type="range" id="mnh-scrub-sensitivity" min="0.5" max="2.0" step="0.1" value="1.0"
+            oninput="document.getElementById('mnh-scrub-sensitivity-label').textContent = parseFloat(this.value).toFixed(1) + 'x';"
+            onchange="window.mnhSetScrubSensitivity && window.mnhSetScrubSensitivity(this.value)"
+            class="w-full accent-accent">
+        <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>Slower</span><span>Faster</span></div>
+        <p class="text-xs text-gray-500 mt-1">Controls how much time changes per pixel dragged. Higher = more responsive.</p>
+    </div>
+
+    <script>
+    (function () {
+        const slider = document.getElementById('mnh-scrub-sensitivity');
+        const label = document.getElementById('mnh-scrub-sensitivity-label');
+        
+        if (slider && label) {
+            try {
+                const saved = localStorage.getItem('mobile_note_highway.scrubSensitivity');
+                const value = saved ? parseFloat(saved) : 1.0;
+                slider.value = value;
+                label.textContent = value.toFixed(1) + 'x';
+            } catch (_) {
+                slider.value = 1.0;
+                label.textContent = '1.0x';
+            }
+        }
+    })();
+    </script>
+</div>
+
+<div role="group" aria-labelledby="mnh-audio-heading" class="mt-6">
+    <h3 id="mnh-audio-heading" class="text-sm font-medium text-gray-400 mb-2">Mobile Note Highway — Audio Feedback</h3>
+    <p class="text-xs text-gray-500 mb-3">
+        Velocity-based audio feedback while scrubbing the highway or dragging the section map.
+        Faster scrubbing produces higher pitch and louder volume.
+    </p>
+
+    <!-- Enable/Disable Audio Feedback -->
+    <div class="mt-3">
+        <label class="flex items-center gap-3 cursor-pointer select-none">
+            <input type="checkbox" id="mnh-audio-enabled"
+                onchange="window.mnhSetAudioEnabled && window.mnhSetAudioEnabled(this.checked)"
+                class="rounded border-gray-600 bg-dark-700 text-accent focus:ring-accent/40">
+            <span class="text-sm text-gray-300">Enable whoosh sound during scrubbing</span>
+        </label>
+    </div>
+
+    <!-- Whoosh Sound Type -->
+    <div class="mt-3">
+        <label for="mnh-whoosh-type" class="text-xs font-medium text-gray-400 mb-1 block">Scrubbing sound</label>
+        <select id="mnh-whoosh-type"
+            onchange="window.mnhSetWhooshType && window.mnhSetWhooshType(this.value)"
+            class="w-full bg-dark-700 border border-gray-800 rounded-lg px-3 py-2 text-xs text-gray-300 outline-none">
+            <option value="tape_flutter">Tape flutter (warbling tape deck)</option>
+            <option value="sawtooth">Sawtooth (buzzy, aggressive sweep)</option>
+            <option value="sine">Sine (smooth, clean tone)</option>
+            <option value="whitenoise">White noise (static/wind)</option>
+            <option value="rumble">Rumble (deep bass vibration)</option>
+            <option value="crackle">Crackle (filtered static)</option>
+            <option value="clicks">Clicks (rhythmic ticking)</option>
+            <option value="vinyl_scratch">Vinyl scratch (DJ turntable)</option>
+            <option value="mechanical">Mechanical (ratcheting gears)</option>
+        </select>
+        <p class="text-xs text-gray-500 mt-1">Changes take effect on next scrub.</p>
+    </div>
+
+    <script>
+    (function () {
+        const enabledCheckbox = document.getElementById('mnh-audio-enabled');
+        const sel = document.getElementById('mnh-whoosh-type');
+        
+        if (enabledCheckbox) {
+            try {
+                const enabled = localStorage.getItem('mobile_note_highway.audioEnabled');
+                enabledCheckbox.checked = enabled !== 'false'; // default true
+            } catch (_) {
+                enabledCheckbox.checked = true;
+            }
+        }
+        
+        if (sel) {
+            try {
+                const saved = localStorage.getItem('mobile_note_highway.whooshType');
+                sel.value = saved || 'tape_flutter';
+            } catch (_) {
+                sel.value = 'tape_flutter';
+            }
+        }
+    })();
+    </script>
+</div>
