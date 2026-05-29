@@ -1520,9 +1520,15 @@
         
         if (audio.paused) {
             audio.play();
+            if (typeof window.setPlayButtonState === 'function') {
+                window.setPlayButtonState(true);
+            }
             if (!silent) showGestureFeedback('Play');
         } else {
             audio.pause();
+            if (typeof window.setPlayButtonState === 'function') {
+                window.setPlayButtonState(false);
+            }
             if (!silent) showGestureFeedback('Pause');
         }
     }
