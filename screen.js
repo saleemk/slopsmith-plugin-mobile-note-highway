@@ -24,9 +24,18 @@
      * @returns {'phone'|'tablet'|'desktop'}
      */
     function detectDevice() {
+        const ua = navigator.userAgent.toLowerCase();
         const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
-        const hasTouch = hasCoarsePointer || ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-        if (!hasTouch) return 'desktop';
+        
+        // Desktop OS detection - Windows/Mac/Linux desktops (but not mobile variants)
+        const isDesktopUA = /windows nt|macintosh|linux x86_64/.test(ua) && 
+                           !/mobile|android|iphone|ipad|ipod|windows phone/.test(ua);
+        
+        // Require maxTouchPoints > 1 (not > 0) to avoid false positives from
+        // desktop browsers with dev tools emulation support
+        const hasTouch = hasCoarsePointer || ('ontouchstart' in window) || (navigator.maxTouchPoints > 1);
+        
+        if (!hasTouch || isDesktopUA) return 'desktop';
         return window.innerWidth >= 600 ? 'tablet' : 'phone';
     }
     
