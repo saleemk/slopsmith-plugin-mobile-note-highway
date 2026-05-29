@@ -1,6 +1,6 @@
 # Mobile Note Highway
 
-**v1.0.0** — Initial release. Expect bugs and rough edges.
+**v1.0.0** - Initial release. Expect bugs and rough edges.
 
 A touch-optimized note highway player plugin for [Slopsmith](https://github.com/slopsmith/slopsmith) that transforms the player experience on phones and tablets. Collapsible controls, intuitive gestures, and device-adaptive layouts let you focus on playing.
 
@@ -20,11 +20,11 @@ A touch-optimized note highway player plugin for [Slopsmith](https://github.com/
 
 ## Features
 
-- **Collapsible controls** — Swipe up/down to show/hide advanced tools. Only essentials visible by default.
-- **Swipe left/right** — Seek ±5 seconds through the song
-- **Tap to play/pause** — Single tap anywhere on the highway
-- **Double tap to loop** — Set A/B loop markers with double taps (A → B → Clear)
-- **Drag-to-scrub section map** — Touch and drag the section map for instant navigation with live preview
+- **Collapsible controls** - Swipe up/down to show/hide advanced tools. Only essentials visible by default.
+- **Swipe left/right** - Seek ±5 seconds through the song
+- **Tap to play/pause** - Single tap anywhere on the highway
+- **Double tap to loop** - Set A/B loop markers with double taps (A → B → Clear)
+- **Drag-to-scrub section map** - Touch and drag the section map for instant navigation with live preview
 
 ## Installation
 
@@ -97,7 +97,7 @@ The plugin detects your device type using screen width and touch capability, the
 
 - **Phone (< 600px):** Minimal controls optimized for one-handed use
 - **Tablet (≥ 600px):** More controls with bigger touch targets and generous spacing
-- **Desktop:** Plugin stays dormant — standard Slopsmith interface
+- **Desktop:** Plugin stays dormant - standard Slopsmith interface
 
 Gesture detection, layout adjustments, and control hiding happen automatically. No configuration needed.
 
@@ -113,10 +113,10 @@ The plugin should work on Android devices but has not been tested. If you encoun
 
 Future improvements planned:
 
-- **Configurable essential controls** — Let users customize which controls appear in collapsed view
-- **Landscape optimization** — Better layout and spacing for horizontal orientation
-- **Expanded view organization** — Group related buttons and plugins into categorized sections (Practice/Audio/Visual/Plugins) using CSS Grid for cleaner, more intuitive control layout
-- **Gesture refinement** — Re-evaluate swipe left/right behavior for better seek control
+- **Configurable essential controls** - Let users customize which controls appear in collapsed view
+- **Landscape optimization** - Better layout and spacing for horizontal orientation
+- **Expanded view organization** - Group related buttons and plugins into categorized sections (Practice/Audio/Visual/Plugins) using CSS Grid for cleaner, more intuitive control layout
+- **Gesture refinement** - Re-evaluate swipe left/right behavior for better seek control
 
 ## Technical notes
 

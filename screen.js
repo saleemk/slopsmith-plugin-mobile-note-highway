@@ -115,10 +115,10 @@
     let _swipeIndicator = null;
     let _controlsObserver = null;
     let _sectionMapOriginalStyles = null;
+    let _sectionMapObserver = null;
     let _playerHudOriginalStyles = null;
     let _highway3dOverlayOriginalStyles = null;
     let _highway3dObserver = null;
-    let _highway3dRetryInterval = null;
     let _highway3dAdjusted = false;
     
     // Gesture state (highway swipes and tap)
@@ -142,8 +142,82 @@
     // Resize handling
     let _resizeTimeout = null;
     
-    // Observer batching (requestAnimationFrame)
-    let _pendingObserverUpdate = false;
+    // ═══════════════════════════════════════════════════════════════
+    // Observer Utilities
+    // ═══════════════════════════════════════════════════════════════
+    
+    /**
+     * Create a managed MutationObserver with optional retry and RAF batching
+     * @param {Object} config
+     * @param {string|HTMLElement} config.target - Element or selector to observe
+     * @param {Function} config.handler - Called with mutations array
+     * @param {Object} config.options - MutationObserver options
+     * @param {boolean} [config.batchWithRAF=false] - Batch handler calls with requestAnimationFrame
+     * @param {number} [config.retryMs] - Retry interval if target not found (e.g. 500)
+     * @returns {Object} - { start, stop }
+     */
+    function createManagedObserver(config) {
+        let observer = null;
+        let retryInterval = null;
+        let pendingRAF = false;
+        
+        function getTarget() {
+            return typeof config.target === 'string'
+                ? document.querySelector(config.target)
+                : config.target;
+        }
+        
+        function tryStart() {
+            const target = getTarget();
+            if (!target) return false;
+            
+            if (observer) observer.disconnect();
+            
+            observer = new MutationObserver((mutations) => {
+                if (config.batchWithRAF) {
+                    if (pendingRAF) return;
+                    pendingRAF = true;
+                    requestAnimationFrame(() => {
+                        pendingRAF = false;
+                        config.handler(mutations);
+                    });
+                } else {
+                    config.handler(mutations);
+                }
+            });
+            
+            observer.observe(target, config.options);
+            return true;
+        }
+        
+        function start() {
+            stop();
+            const started = tryStart();
+            
+            if (!started && config.retryMs) {
+                retryInterval = setInterval(() => {
+                    if (tryStart()) {
+                        clearInterval(retryInterval);
+                        retryInterval = null;
+                    }
+                }, config.retryMs);
+            }
+        }
+        
+        function stop() {
+            if (retryInterval) {
+                clearInterval(retryInterval);
+                retryInterval = null;
+            }
+            if (observer) {
+                observer.disconnect();
+                observer = null;
+            }
+            pendingRAF = false;
+        }
+        
+        return { start, stop };
+    }
     
     // ═══════════════════════════════════════════════════════════════
     // CSS Classes Injection
@@ -368,6 +442,43 @@
     // ═══════════════════════════════════════════════════════════════
     // Essential Control Detection
     // ═══════════════════════════════════════════════════════════════
+    
+    // ═══════════════════════════════════════════════════════════════
+    // Control Order & Styling
+    // ═══════════════════════════════════════════════════════════════
+    
+    /**
+     * Apply order and margin values to priority controls
+     * Priority order: back=-1, play=0, arr=1, diff=2, speed=3, rest=100+
+     */
+    function applyControlOrder() {
+        const arrSelect = document.getElementById('arr-select');
+        const masteryWrapper = document.getElementById('mobile-mastery-wrapper');
+        const speedWrapper = document.getElementById('mobile-speed-wrapper');
+        const avWrapper = document.getElementById('mobile-av-wrapper');
+        
+        if (arrSelect) {
+            arrSelect.style.order = '1';
+            arrSelect.style.marginLeft = '12px';
+            arrSelect.style.width = CFG.selectWidth + 'px';
+            arrSelect.style.marginRight = (!IS_TABLET && _toolsExpanded) ? 'auto' : '0';
+        }
+        
+        if (masteryWrapper) {
+            masteryWrapper.style.order = '2';
+            masteryWrapper.style.marginLeft = '0';
+        }
+        
+        if (speedWrapper) {
+            speedWrapper.style.order = '3';
+            speedWrapper.style.marginLeft = '0';
+            speedWrapper.style.marginRight = '0';
+        }
+        
+        if (avWrapper) {
+            avWrapper.style.order = '100';
+        }
+    }
     
     /**
      * Check if an element should remain visible (not hidden in Tools)
@@ -729,45 +840,8 @@
             controls.appendChild(spacer);
         }
 
-        // Reorder the first row for expanded view: move the speed and mastery
-        // wrappers before the arrangement dropdown, so the top row reads:
-        //   [seek<<][play][seek>>] [Arrangement] [Speed] [Difficulty]
-        // Use explicit CSS order values for clear positioning.
-        const arrSelect = document.getElementById('arr-select');
-        const _speedWrapperEl = document.getElementById('mobile-speed-wrapper');
-        const _masteryWrapperEl = document.getElementById('mobile-mastery-wrapper');
-        
-        // Priority order (simple consecutive values):
-        // -1: Back button (set later)
-        //  0: Player controls (natural)
-        //  1: Arrangement
-        //  2: Difficulty
-        //  3: Speed
-        // 100+: Everything else
-        
-        if (arrSelect) {
-            arrSelect.style.order = '1';
-            arrSelect.style.marginLeft = '12px';
-            arrSelect.style.width = CFG.selectWidth + 'px';
-            arrSelect.style.marginRight = (!IS_TABLET && _toolsExpanded) ? 'auto' : '0';
-        }
-        
-        if (_masteryWrapperEl) {
-            _masteryWrapperEl.style.order = '2';
-            _masteryWrapperEl.style.marginLeft = '0';
-        }
-        
-        if (_speedWrapperEl) {
-            _speedWrapperEl.style.order = '3';
-            _speedWrapperEl.style.marginLeft = '0';
-            _speedWrapperEl.style.marginRight = '0';
-        }
-        
-        // A/V offset wrapper gets order 100 (non-essential, appears after priority controls)
-        const _avWrapperEl = document.getElementById('mobile-av-wrapper');
-        if (_avWrapperEl) {
-            _avWrapperEl.style.order = '100';
-        }
+        // Apply control order and margins
+        applyControlOrder();
 
         // Ensure controls container has position: relative for absolute positioning
         controls.style.position = 'relative';
@@ -791,35 +865,14 @@
      * Used on song re-entry to fix misalignment.
      */
     function reapplyControlOrder() {
-        const arrSelect = document.getElementById('arr-select');
-        const masteryWrapper = document.getElementById('mobile-mastery-wrapper');
-        const speedWrapper = document.getElementById('mobile-speed-wrapper');
-        
-        if (arrSelect) {
-            arrSelect.style.order = '1';
-            arrSelect.style.marginLeft = '12px';
-            arrSelect.style.width = CFG.selectWidth + 'px';
-            arrSelect.style.marginRight = (!IS_TABLET && _toolsExpanded) ? 'auto' : '0';
-        }
-        
-        if (masteryWrapper) {
-            masteryWrapper.style.order = '2';
-            masteryWrapper.style.marginLeft = '0';
-        }
-        
-        if (speedWrapper) {
-            speedWrapper.style.order = '3';
-            speedWrapper.style.marginLeft = '0';
-            speedWrapper.style.marginRight = '0';
-        }
-        
-        // A/V offset wrapper gets order 100 (non-essential)
-        const avWrapper = document.getElementById('mobile-av-wrapper');
-        if (avWrapper) {
-            avWrapper.style.order = '100';
-        }
+        // Apply order and margins
+        applyControlOrder();
         
         // Re-set wrapper display (can get cleared on song change)
+        const masteryWrapper = document.getElementById('mobile-mastery-wrapper');
+        const speedWrapper = document.getElementById('mobile-speed-wrapper');
+        const avWrapper = document.getElementById('mobile-av-wrapper');
+        
         if (masteryWrapper) {
             masteryWrapper.style.display = 'inline-flex';
         }
@@ -918,29 +971,25 @@
      * @param {HTMLElement} controls - The player controls container
      */
     function startControlsObserver(controls) {
-        // Disconnect any existing observer
         stopControlsObserver();
         
-        _controlsObserver = new MutationObserver((mutations) => {
-            // Batch updates with requestAnimationFrame
-            if (_pendingObserverUpdate) return;
-            _pendingObserverUpdate = true;
-            
-            requestAnimationFrame(() => {
-                _pendingObserverUpdate = false;
-                
+        _controlsObserver = createManagedObserver({
+            target: controls,
+            batchWithRAF: true,
+            options: {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['class', 'style']
+            },
+            handler: (mutations) => {
                 for (const mutation of mutations) {
                     if (mutation.type === 'childList') {
-                        // Check each added node
                         mutation.addedNodes.forEach(node => {
-                            // Only process element nodes (not text nodes)
                             if (node.nodeType !== Node.ELEMENT_NODE) return;
-                            
-                            // Skip if it's our swipe indicator
                             if (node.id === 'mobile-swipe-indicator') return;
                             if (node.id === 'mobile-end-spacer') return;
                             
-                            // Skip elements inside wrappers - wrappers manage their children
                             const parentId = node.parentElement?.id;
                             if (parentId === 'mobile-mastery-wrapper' || 
                                 parentId === 'mobile-speed-wrapper' || 
@@ -948,26 +997,20 @@
                                 return;
                             }
                             
-                            // Apply touch-friendly styling to buttons
                             if (node.tagName === 'BUTTON') {
                                 node.classList.add('mobile-button');
                             }
                             
-                            // If it's not essential, hide it
                             if (!isEssentialControl(node)) {
                                 hideControl(node);
                             }
                         });
                     } else if (mutation.type === 'attributes') {
-                        // Re-apply mobile classes when className is replaced by core
-                        // (e.g., loop buttons have their classes wiped when activated)
                         const target = mutation.target;
                         
-                        // Skip our injected helpers
                         if (target.id === 'mobile-swipe-indicator') return;
                         if (target.id === 'mobile-end-spacer') return;
                         
-                        // Skip elements inside wrappers - wrappers manage their children
                         const parentId = target.parentElement?.id;
                         if (parentId === 'mobile-mastery-wrapper' || 
                             parentId === 'mobile-speed-wrapper' || 
@@ -976,31 +1019,22 @@
                         }
                         
                         if (target.nodeType === Node.ELEMENT_NODE && !isEssentialControl(target)) {
-                            // If mobile-hide-advanced class was wiped, re-add it
                             if (!target.classList.contains('mobile-hide-advanced')) {
                                 target.classList.add('mobile-hide-advanced');
                             }
-                            // Apply mobile-button class to buttons
                             if (target.tagName === 'BUTTON' && !target.classList.contains('mobile-button')) {
                                 target.classList.add('mobile-button');
                             }
-                            // Re-enforce collapsed state if needed
                             if (!_toolsExpanded && !target.classList.contains('mobile-hidden')) {
                                 target.classList.add('mobile-hidden');
                             }
                         }
                     }
                 }
-            });
+            }
         });
         
-        // Start observing
-        _controlsObserver.observe(controls, {
-            childList: true,      // Watch for children being added/removed
-            subtree: true,        // Watch nested changes (children's attributes)
-            attributes: true,     // Watch for attribute changes (className, style, etc.)
-            attributeFilter: ['class', 'style']
-        });
+        _controlsObserver.start();
     }
     
     /**
@@ -1008,7 +1042,7 @@
      */
     function stopControlsObserver() {
         if (_controlsObserver) {
-            _controlsObserver.disconnect();
+            _controlsObserver.stop();
             _controlsObserver = null;
         }
     }
@@ -1040,33 +1074,8 @@
         // Get controls element for subsequent operations
         const controls = document.getElementById('player-controls');
 
-        // Re-apply explicit order values (priority order: back=-1, player=0, arr=1, diff=2, speed=3)
-        const arrSelect = document.getElementById('arr-select');
-        if (arrSelect) {
-            arrSelect.style.order = '1';
-            arrSelect.style.marginLeft = '12px';
-            arrSelect.style.width = CFG.selectWidth + 'px';
-            arrSelect.style.marginRight = (!IS_TABLET && _toolsExpanded) ? 'auto' : '0';
-        }
-
-        const masteryWrapper = document.getElementById('mobile-mastery-wrapper');
-        if (masteryWrapper) {
-            masteryWrapper.style.order = '2';
-            masteryWrapper.style.marginLeft = '0';
-        }
-
-        const speedWrapper = document.getElementById('mobile-speed-wrapper');
-        if (speedWrapper) {
-            speedWrapper.style.order = '3';
-            speedWrapper.style.marginLeft = '0';
-            speedWrapper.style.marginRight = '0';
-        }
-        
-        // A/V offset wrapper gets order 100 (non-essential)
-        const avWrapper = document.getElementById('mobile-av-wrapper');
-        if (avWrapper) {
-            avWrapper.style.order = '100';
-        }
+        // Re-apply explicit order values
+        applyControlOrder();
 
         // Close button: keep transformed into a Back icon at far left
         if (controls) {
@@ -1247,6 +1256,28 @@
     // ═══════════════════════════════════════════════════════════════
     
     /**
+     * Process section map labels - hide on phone, keep on tablet
+     */
+    function processSectionMapLabels() {
+        const sectionMap = document.getElementById('section-map');
+        if (!sectionMap) return;
+        
+        const labels = sectionMap.querySelectorAll('.sm-block span');
+        labels.forEach(label => {
+            if (!IS_TABLET) {
+                // Phone: hide labels (too cramped)
+                if (!label.hasAttribute('data-original-display')) {
+                    label.setAttribute('data-original-display', label.style.display || '');
+                }
+                label.style.display = 'none';
+            } else {
+                // Tablet: keep labels visible (enough space)
+                // Don't modify - let them show naturally
+            }
+        });
+    }
+    
+    /**
      * Make section map more touch-friendly on mobile
      */
     function enhanceSectionMap() {
@@ -1263,14 +1294,34 @@
         // Increase height for better touch targets (default 20px → CFG.sectionMapHeight)
         sectionMap.style.height = CFG.sectionMapHeight + 'px';
         
-        // Hide section labels (too small to read on mobile - tooltip shows them on drag)
-        const labels = sectionMap.querySelectorAll('.sm-block span');
-        labels.forEach(label => {
-            if (!label.hasAttribute('data-original-display')) {
-                label.setAttribute('data-original-display', label.style.display || '');
+        // Process any existing labels
+        processSectionMapLabels();
+        
+        // Watch for labels being added/changed (section_map plugin creates them async)
+        stopSectionMapObserver();
+        
+        _sectionMapObserver = createManagedObserver({
+            target: '#section-map',
+            options: {
+                childList: true,
+                subtree: true
+            },
+            handler: () => {
+                processSectionMapLabels();
             }
-            label.style.display = 'none';
         });
+        
+        _sectionMapObserver.start();
+    }
+    
+    /**
+     * Stop observing section map changes
+     */
+    function stopSectionMapObserver() {
+        if (_sectionMapObserver) {
+            _sectionMapObserver.stop();
+            _sectionMapObserver = null;
+        }
     }
     
     /**
@@ -1279,6 +1330,8 @@
     function restoreSectionMap() {
         const sectionMap = document.getElementById('section-map');
         if (!sectionMap) return;
+        
+        stopSectionMapObserver();
         
         // Restore height
         if (_sectionMapOriginalStyles) {
@@ -1368,39 +1421,34 @@
     function startHighway3dObserver() {
         stopHighway3dObserver();
         _highway3dAdjusted = false;
+        
+        // Try to adjust immediately
         adjustHighway3dOverlay();
         
-        _highway3dRetryInterval = setInterval(() => {
-            adjustHighway3dOverlay();
-        }, 500);
-        
-        const player = document.getElementById('player');
-        if (!player) return;
-        
-        _highway3dObserver = new MutationObserver(() => {
-            adjustHighway3dOverlay();
+        // Create observer with retry (500ms until 3D highway wrapper appears)
+        _highway3dObserver = createManagedObserver({
+            target: '#player',
+            retryMs: 500,
+            options: {
+                childList: true,
+                subtree: true
+            },
+            handler: () => {
+                adjustHighway3dOverlay();
+            }
         });
         
-        _highway3dObserver.observe(player, {
-            childList: true,
-            subtree: true
-        });
+        _highway3dObserver.start();
     }
     
     /**
      * Stop observing 3D highway overlay
      */
     function stopHighway3dObserver() {
-        if (_highway3dRetryInterval) {
-            clearInterval(_highway3dRetryInterval);
-            _highway3dRetryInterval = null;
-        }
-        
         if (_highway3dObserver) {
-            _highway3dObserver.disconnect();
+            _highway3dObserver.stop();
             _highway3dObserver = null;
         }
-        
         _highway3dAdjusted = false;
     }
     
