@@ -1,8 +1,8 @@
 # Mobile Note Highway
 
-**v1.0.0** - Initial release. Expect bugs and rough edges.
+**v1.1.0** - Gesture refinement with vertical scrubbing, live preview, and audio feedback.
 
-A touch-optimized note highway player plugin for [Slopsmith](https://github.com/slopsmith/slopsmith) that transforms the player experience on phones and tablets. Collapsible controls, intuitive gestures, and device-adaptive layouts let you focus on playing.
+A touch-optimized note highway player plugin for [Slopsmith](https://github.com/slopsmith/slopsmith) that transforms the player experience on phones and tablets. Collapsible controls, intuitive gestures with live audio feedback, and device-adaptive layouts let you focus on playing.
 
 **Tested on iOS (portrait mode).** Android should work and likely has native touch feedback, but hasn't been verified.
 
@@ -21,10 +21,10 @@ A touch-optimized note highway player plugin for [Slopsmith](https://github.com/
 ## Features
 
 - **Collapsible controls** - Swipe up/down to show/hide advanced tools. Only essentials visible by default.
-- **Swipe left/right** - Seek ±5 seconds through the song
+- **Swipe up/down on highway** - Scrub through the song by dragging vertically with live highway preview - matches the natural flow of notes scrolling toward you
 - **Tap to play/pause** - Single tap anywhere on the highway
 - **Double tap to loop** - Set A/B loop markers with double taps (A → B → Clear)
-- **Drag-to-scrub section map** - Touch and drag the section map for instant navigation with live preview
+- **Drag-to-scrub section map** - Touch and drag the section map for instant navigation with live highway preview
 
 ## Installation
 
@@ -69,17 +69,17 @@ Open any song on your phone or tablet — the plugin activates automatically.
 - **Tap chevron** (⌃ or ⌄) → toggle expand/collapse
 
 **Highway gestures:**
-- **Swipe left/right** → seek ±5 seconds
+- **Swipe up/down** → scrub through song with live preview - drag vertically to move forward/back through time, matching the natural scroll of notes coming at you
 - **Single tap** → play/pause
 - **Double tap** → set loop markers (A → B → Clear)
 
 **Section map:**
-- **Drag** → scrub through song with live tooltip
+- **Drag** → scrub through song with live highway preview and tooltip
 - **Tap** → jump to that position instantly
 
 **What's visible by default:**
-- **Phone:** Back button, play controls, arrangement selector
-- **Tablet:** Back button, play controls, arrangement selector, difficulty slider, speed slider
+- **Phone:** Back button, seek buttons, play controls, 1 additional control (arrangement selector by default)
+- **Tablet:** Back button, seek buttons, play controls, up to 3 additional controls (arrangement selector, difficulty slider, speed slider by default)
 
 **Hidden until you swipe up:**
 - Loop controls (A/B buttons)
@@ -87,7 +87,10 @@ Open any song on your phone or tablet — the plugin activates automatically.
 - Audio mixer
 - A/V offset slider
 - Quality/HD selector
+- Lyrics toggle
 - All plugin buttons (fretboard, tones, detect, step mode, etc.)
+
+**Customize collapsed view:** Go to **Settings → Mobile Note Highway** to choose which controls appear when collapsed. Phone allows 1 additional control, tablet allows up to 3.
 
 All gestures show brief visual feedback confirming the action.
 
@@ -101,6 +104,18 @@ The plugin detects your device type using screen width and touch capability, the
 
 Gesture detection, layout adjustments, and control hiding happen automatically. No configuration needed.
 
+### Settings
+
+Customize the plugin in **Settings → Mobile Note Highway**:
+
+- **Collapsed View Controls** - Choose which controls appear when collapsed
+  - Phone: Select 1 additional control (default: arrangement selector)
+  - Tablet: Select up to 3 additional controls (default: arrangement, difficulty, speed)
+  - Seek and play buttons always visible
+- **Scrub Sensitivity** - Adjust how responsive vertical scrubbing feels (0.5x - 2.0x)
+- **Audio Feedback** - Enable/disable whoosh sound and choose from 9 sound types:
+  - `tape_flutter` (default), `sawtooth`, `sine`, `whitenoise`, `rumble`, `crackle`, `clicks`, `vinyl_scratch`, `mechanical`
+
 ## Compatibility
 
 **Tested on:** iOS devices (iPhone and iPad) in portrait orientation.
@@ -113,16 +128,18 @@ The plugin should work on Android devices but has not been tested. If you encoun
 
 Future improvements planned:
 
-- **Configurable essential controls** - Let users customize which controls appear in collapsed view
+- ~~**Configurable essential controls** - Let users customize which controls appear in collapsed view~~
 - **Landscape optimization** - Better layout and spacing for horizontal orientation
 - **Expanded view organization** - Group related buttons and plugins into categorized sections (Practice/Audio/Visual/Plugins) using CSS Grid for cleaner, more intuitive control layout
-- **Gesture refinement** - Re-evaluate swipe left/right behavior for better seek control
+- ~~**Gesture refinement** - Re-evaluate swipe left/right behavior for better seek control~~
 
 ## Technical notes
 
 - Pure vanilla JavaScript, no dependencies
 - Uses `MutationObserver` to catch plugin buttons as they load
 - Hooks into `setLoopStart`/`setLoopEnd`/`clearLoop` for gesture sync
+- Web Audio API for scrubbing audio feedback
+- Intercepts section_map plugin's drag events to add live highway updates
 - All device-specific sizing lives in a CONFIG object for easy maintenance
 
 ## Contributing

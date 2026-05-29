@@ -57,13 +57,17 @@
             sectionMapHeight: 44,       // px
             playerHudTop: 40,           // px
             highway3dTop: 105,          // px
-            // Gestures (same on both today; deferred refinement)
-            swipeHorizontalThreshold: 50,
-            swipeVerticalThreshold: 40,
-            swipeMaxDurationMs: 500,
+            // Gestures
             tapMaxDurationMs: 300,
             tapMaxMovementPx: 10,
             doubleTapWindowMs: 250,
+            // Scrubbing
+            scrubTimePerPixel: 0.05,        // 20px = 1 second
+            scrubThrottleMs: 100,           // Update audio every 100ms
+            scrubMinMovement: 15,           // px - min vertical movement to enter scrub mode
+            // Controls gestures
+            swipeVerticalThreshold: 40,
+            swipeMaxDurationMs: 500,
             pullToRefreshGuardPx: 10,
         },
         tablet: {
@@ -85,19 +89,62 @@
             sectionMapHeight: 44,
             playerHudTop: 40,
             highway3dTop: 105,
-            // Gestures — same numbers across devices (per user)
-            swipeHorizontalThreshold: 50,
-            swipeVerticalThreshold: 40,
-            swipeMaxDurationMs: 500,
+            // Gestures
             tapMaxDurationMs: 300,
             tapMaxMovementPx: 10,
             doubleTapWindowMs: 250,
+            // Scrubbing
+            scrubTimePerPixel: 0.05,        // 20px = 1 second
+            scrubThrottleMs: 100,           // Update audio every 100ms
+            scrubMinMovement: 15,           // px - min vertical movement to enter scrub mode
+            // Controls gestures
+            swipeVerticalThreshold: 40,
+            swipeMaxDurationMs: 500,
             pullToRefreshGuardPx: 10,
         },
     };
     
     let CFG = CONFIG[DEVICE] || CONFIG.phone;
     let IS_TABLET = DEVICE === 'tablet';
+    
+    /**
+     * Get current whoosh sound type from localStorage.
+     * Configurable via Settings panel.
+     * @returns {string}
+     */
+    function getWhooshType() {
+        try {
+            return localStorage.getItem('mobile_note_highway.whooshType') || 'tape_flutter';
+        } catch (_) {
+            return 'tape_flutter';
+        }
+    }
+    
+    /**
+     * Get whether audio feedback is enabled.
+     * @returns {boolean}
+     */
+    function getAudioEnabled() {
+        try {
+            const val = localStorage.getItem('mobile_note_highway.audioEnabled');
+            return val !== 'false'; // default true
+        } catch (_) {
+            return true;
+        }
+    }
+    
+    /**
+     * Get scrub sensitivity multiplier.
+     * @returns {number}
+     */
+    function getScrubSensitivity() {
+        try {
+            const val = localStorage.getItem('mobile_note_highway.scrubSensitivity');
+            return val ? parseFloat(val) : 1.0;
+        } catch (_) {
+            return 1.0;
+        }
+    }
     
     /**
      * Plugin activates on phone AND tablet; not on desktop.
@@ -117,7 +164,7 @@
         swipeIndicator: null,      // was _swipeIndicator
     };
     
-    // Highway gesture state (swipes, taps, loop markers)
+    // Highway gesture state (scrubbing, taps, loop markers)
     const _highway = {
         gestureStartX: 0,          // was _gestureStartX
         gestureStartY: 0,          // was _gestureStartY
@@ -125,6 +172,28 @@
         gestureActive: false,      // was _gestureActive
         lastTapTime: 0,            // was _lastTapTime
         loopMarkerState: 'ready',  // was _loopMarkerState ('ready' | 'a-set' | 'b-set')
+        scrubActive: false,        // Currently scrubbing?
+        scrubStartTime: 0,         // Audio time when scrub began
+        scrubLastUpdate: 0,        // Timestamp of last audio update (for throttling)
+        scrubLastDeltaY: 0,        // Previous deltaY (for velocity calculation)
+        wasPlayingBeforeScrub: false, // Was audio playing when scrub started?
+    };
+    
+    // Web Audio for whoosh sounds
+    const _whoosh = {
+        context: null,             // AudioContext
+        source: null,              // AudioNode (oscillator for motor whir)
+        noiseSource: null,         // BufferSource (for tape hiss layer)
+        gain: null,                // GainNode (master volume control)
+        oscillatorGain: null,      // GainNode (oscillator layer volume)
+        noiseGain: null,           // GainNode (noise layer volume)
+        filter: null,              // BiquadFilterNode (bandpass for tape speaker)
+        noiseBuffer: null,         // AudioBuffer (pre-generated white noise)
+        lfo: null,                 // OscillatorNode (tape_flutter LFO)
+        lfoGain: null,             // GainNode (tape_flutter modulation depth)
+        modulatedGain: null,       // GainNode (tape_flutter AM output)
+        active: false,             // Is whoosh playing?
+        type: null,                // Current sound type
     };
     
     // Controls gesture state (swipe up/down to expand/collapse)
@@ -1205,6 +1274,96 @@
     // ═══════════════════════════════════════════════════════════════
     
     /**
+     * Add live highway updates during section map drag (intercepts section_map plugin's drag)
+     */
+    function enableSectionMapLiveUpdate() {
+        const sectionMap = document.getElementById('section-map');
+        if (!sectionMap) return;
+        
+        let isDragging = false;
+        let lastUpdateTime = 0;
+        let lastX = 0;
+        let lastDeltaX = 0;
+        let dragStartTime = 0;
+        const updateThrottle = 50; // ms - update every 50ms during drag
+        
+        // Detect when section map drag starts
+        const onDragStart = (e) => {
+            isDragging = true;
+            lastUpdateTime = 0;
+            const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            lastX = clientX;
+            lastDeltaX = 0;
+            dragStartTime = Date.now();
+            
+            // Initialize whoosh
+            initWhoosh();
+        };
+        
+        // Live update audio position during drag
+        const onDragMove = (e) => {
+            if (!isDragging) return;
+            
+            const now = Date.now();
+            const audio = document.getElementById('audio');
+            if (!audio) return;
+            
+            const sectionMapInfo = window.highway?.getSongInfo();
+            if (!sectionMapInfo || !sectionMapInfo.duration) return;
+            
+            // Calculate time based on pointer position over section map
+            const rect = sectionMap.getBoundingClientRect();
+            const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+            const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+            const newTime = pct * sectionMapInfo.duration;
+            
+            // Calculate velocity: pixels per second (horizontal movement)
+            const deltaX = clientX - lastX;
+            const prevTime = lastUpdateTime || dragStartTime;
+            const deltaTime = now - prevTime;
+            const velocity = deltaTime > 0 ? (deltaX / deltaTime) * 1000 : 0;
+            
+            lastX = clientX;
+            lastDeltaX = deltaX;
+            
+            // Update whoosh sound on every move (no throttle for audio feedback)
+            if (!_whoosh.active && Math.abs(velocity) > 30) {
+                startWhoosh(velocity);
+            } else if (_whoosh.active) {
+                updateWhoosh(velocity);
+            }
+            
+            // Throttle audio seeking to 50ms for performance
+            if (now - lastUpdateTime < updateThrottle) return;
+            lastUpdateTime = now;
+            
+            // Update lastAudioTime to prevent jump detector from resetting
+            if (typeof lastAudioTime !== 'undefined') lastAudioTime = newTime;
+            
+            // Seek without pause/resume dance - just set time directly during drag
+            audio.currentTime = Math.max(0, Math.min(audio.duration || 0, newTime));
+        };
+        
+        // Stop tracking when drag ends
+        const onDragEnd = () => {
+            isDragging = false;
+            stopWhoosh();
+        };
+        
+        // Listen on section map for drag start
+        sectionMap.addEventListener('mousedown', onDragStart);
+        sectionMap.addEventListener('touchstart', onDragStart);
+        
+        // Listen globally for drag continuation (same as section_map plugin does)
+        document.addEventListener('mousemove', onDragMove);
+        document.addEventListener('touchmove', onDragMove);
+        document.addEventListener('mouseup', onDragEnd);
+        document.addEventListener('touchend', onDragEnd);
+        
+        console.log('[mobile_note_highway] Section map live update enabled (with whoosh)');
+    }
+    
+    /**
      * Process section map labels - hide on phone, keep on tablet
      */
     function processSectionMapLabels() {
@@ -1242,6 +1401,9 @@
         
         // Increase height for better touch targets (default 20px → CFG.sectionMapHeight)
         sectionMap.style.height = CFG.sectionMapHeight + 'px';
+        
+        // Add live highway updates during section map drag
+        enableSectionMapLiveUpdate();
         
         // Process any existing labels
         processSectionMapLabels();
@@ -1412,6 +1574,394 @@
     }
     
     // ═══════════════════════════════════════════════════════════════
+    // Whoosh Sound Generator
+    // ═══════════════════════════════════════════════════════════════
+    
+    /**
+     * Initialize Web Audio for whoosh sounds
+     */
+    function initWhoosh() {
+        if (_whoosh.context) {
+            console.log('[mobile_note_highway] Whoosh already initialized, state:', _whoosh.context.state);
+            return; // Already initialized
+        }
+        
+        try {
+            _whoosh.context = new (window.AudioContext || window.webkitAudioContext)();
+            console.log('[mobile_note_highway] ✅ Whoosh audio initialized, state:', _whoosh.context.state, 'sampleRate:', _whoosh.context.sampleRate);
+        } catch (err) {
+            console.error('[mobile_note_highway] ❌ Whoosh init failed:', err);
+        }
+    }
+    
+    /**
+     * Start whoosh sound based on velocity
+     * @param {number} velocity - Pixels per second (positive = forward, negative = rewind)
+     */
+    async function startWhoosh(velocity) {
+        if (!_whoosh.context) return;
+        if (_whoosh.active) return; // Already playing
+        
+        // FORCE cleanup of any stale nodes before creating new ones
+        // This prevents "cannot call start more than once" errors
+        if (_whoosh.source || _whoosh.noiseSource || _whoosh.gain) {
+            console.warn('[mobile_note_highway] ⚠️ Forcing cleanup of stale audio nodes before starting new whoosh');
+            const wasActive = _whoosh.active;
+            _whoosh.active = true; // Temporarily set so stopWhoosh doesn't early-return
+            stopWhoosh();
+            _whoosh.active = wasActive;
+        }
+        
+        try {
+            // Check if audio feedback is enabled
+            if (!getAudioEnabled()) {
+                console.log('[mobile_note_highway] Audio feedback disabled, skipping whoosh');
+                return;
+            }
+            
+            console.log('[mobile_note_highway] 🌀 startWhoosh called, context state:', _whoosh.context.state);
+            
+            // Resume context if suspended (iOS requirement) - must await!
+            if (_whoosh.context.state === 'suspended') {
+                await _whoosh.context.resume();
+                console.log('[mobile_note_highway] ✅ AudioContext resumed, new state:', _whoosh.context.state);
+            }
+            
+            _whoosh.type = getWhooshType();
+            const isForward = velocity > 0;
+            
+            // Create gain (volume control)
+            _whoosh.gain = _whoosh.context.createGain();
+            _whoosh.gain.gain.value = 0.06; // Softer volume
+            
+            // Create sound source based on type
+            switch (getWhooshType()) {
+                case 'sawtooth':
+                case 'sine':
+                    // Oscillator-based sounds
+                    _whoosh.source = _whoosh.context.createOscillator();
+                    _whoosh.source.type = getWhooshType();
+                    _whoosh.source.frequency.value = isForward ? 150 : 200;
+                    
+                    // Filter for sweep effect
+                    _whoosh.filter = _whoosh.context.createBiquadFilter();
+                    _whoosh.filter.type = 'bandpass';
+                    _whoosh.filter.frequency.value = 800;
+                    _whoosh.filter.Q.value = 5;
+                    
+                    _whoosh.source.connect(_whoosh.filter);
+                    _whoosh.filter.connect(_whoosh.gain);
+                    break;
+                    
+                case 'rumble':
+                    // Deep bass oscillator
+                    _whoosh.source = _whoosh.context.createOscillator();
+                    _whoosh.source.type = 'sine';
+                    _whoosh.source.frequency.value = 40; // Very low
+                    
+                    // Lowpass filter
+                    _whoosh.filter = _whoosh.context.createBiquadFilter();
+                    _whoosh.filter.type = 'lowpass';
+                    _whoosh.filter.frequency.value = 200;
+                    
+                    _whoosh.source.connect(_whoosh.filter);
+                    _whoosh.filter.connect(_whoosh.gain);
+                    break;
+                    
+                case 'whitenoise':
+                case 'crackle':
+                    // Noise-based sounds (buffer source)
+                    if (!_whoosh.noiseBuffer) {
+                        // Generate noise buffer (2 seconds)
+                        const bufferSize = _whoosh.context.sampleRate * 2;
+                        _whoosh.noiseBuffer = _whoosh.context.createBuffer(1, bufferSize, _whoosh.context.sampleRate);
+                        const data = _whoosh.noiseBuffer.getChannelData(0);
+                        for (let i = 0; i < bufferSize; i++) {
+                            data[i] = Math.random() * 2 - 1;
+                        }
+                    }
+                    
+                    _whoosh.source = _whoosh.context.createBufferSource();
+                    _whoosh.source.buffer = _whoosh.noiseBuffer;
+                    _whoosh.source.loop = true;
+                    
+                    // Filter
+                    _whoosh.filter = _whoosh.context.createBiquadFilter();
+                    _whoosh.filter.type = getWhooshType() === 'crackle' ? 'highpass' : 'bandpass';
+                    _whoosh.filter.frequency.value = getWhooshType() === 'crackle' ? 2000 : 800;
+                    _whoosh.filter.Q.value = getWhooshType() === 'crackle' ? 0.5 : 3;
+                    
+                    _whoosh.source.connect(_whoosh.filter);
+                    _whoosh.filter.connect(_whoosh.gain);
+                    break;
+                    
+                case 'clicks':
+                    // Short pulse oscillator
+                    _whoosh.source = _whoosh.context.createOscillator();
+                    _whoosh.source.type = 'square';
+                    _whoosh.source.frequency.value = 10; // 10 clicks per second base
+                    
+                    _whoosh.source.connect(_whoosh.gain);
+                    break;
+                    
+                case 'vinyl_scratch':
+                    // DJ vinyl scratch: triangle wave + resonant highpass
+                    _whoosh.source = _whoosh.context.createOscillator();
+                    _whoosh.source.type = 'triangle'; // Bright but not harsh
+                    _whoosh.source.frequency.value = isForward ? 200 : 300;
+                    
+                    // Resonant highpass for that vinyl character
+                    _whoosh.filter = _whoosh.context.createBiquadFilter();
+                    _whoosh.filter.type = 'highpass';
+                    _whoosh.filter.frequency.value = 800;
+                    _whoosh.filter.Q.value = 8; // High resonance
+                    
+                    _whoosh.source.connect(_whoosh.filter);
+                    _whoosh.filter.connect(_whoosh.gain);
+                    break;
+                    
+                case 'tape_flutter':
+                    // Warbling tape: sine + AM modulation
+                    _whoosh.source = _whoosh.context.createOscillator();
+                    _whoosh.source.type = 'sine';
+                    _whoosh.source.frequency.value = isForward ? 180 : 250;
+                    
+                    // LFO for amplitude modulation (creates warble)
+                    _whoosh.lfo = _whoosh.context.createOscillator();
+                    _whoosh.lfo.type = 'sine';
+                    _whoosh.lfo.frequency.value = 6; // 6Hz warble
+                    
+                    // LFO gain controls modulation depth
+                    _whoosh.lfoGain = _whoosh.context.createGain();
+                    _whoosh.lfoGain.gain.value = 0.3; // 30% modulation depth
+                    
+                    // Connect: source → gain (modulated by LFO) → master gain
+                    _whoosh.modulatedGain = _whoosh.context.createGain();
+                    _whoosh.modulatedGain.gain.value = 0.7; // Base level
+                    
+                    _whoosh.lfo.connect(_whoosh.lfoGain);
+                    _whoosh.lfoGain.connect(_whoosh.modulatedGain.gain);
+                    _whoosh.source.connect(_whoosh.modulatedGain);
+                    _whoosh.modulatedGain.connect(_whoosh.gain);
+                    
+                    _whoosh.lfo.start();
+                    break;
+                    
+                case 'mechanical':
+                    // Ratcheting gear: square wave with moderate sweep
+                    _whoosh.source = _whoosh.context.createOscillator();
+                    _whoosh.source.type = 'square';
+                    _whoosh.source.frequency.value = isForward ? 100 : 140;
+                    
+                    // Lowpass to soften the harsh square
+                    _whoosh.filter = _whoosh.context.createBiquadFilter();
+                    _whoosh.filter.type = 'lowpass';
+                    _whoosh.filter.frequency.value = 1200;
+                    _whoosh.filter.Q.value = 2;
+                    
+                    _whoosh.source.connect(_whoosh.filter);
+                    _whoosh.filter.connect(_whoosh.gain);
+                    break;
+            }
+            
+            _whoosh.gain.connect(_whoosh.context.destination);
+            _whoosh.source.start();
+            _whoosh.active = true;
+            
+            console.log('[mobile_note_highway] ✅ Whoosh started (' + getWhooshType() + '), velocity:', velocity.toFixed(1), 'gain:', _whoosh.gain.gain.value);
+        } catch (err) {
+            console.error('[mobile_note_highway] ❌ Whoosh start failed:', err);
+        }
+    }
+    
+    /**
+     * Update whoosh sound based on current velocity
+     * @param {number} velocity - Pixels per second
+     */
+    function updateWhoosh(velocity) {
+        if (!_whoosh.active || !_whoosh.source) return;
+        
+        try {
+            const isForward = velocity > 0;
+            const absVel = Math.abs(velocity);
+            const now = _whoosh.context.currentTime;
+            
+            // Volume based on velocity (louder = faster)
+            const volume = Math.min(0.12, 0.06 + (absVel / 10000));
+            _whoosh.gain.gain.setTargetAtTime(volume, now, 0.05);
+            
+            switch (_whoosh.type) {
+                case 'sawtooth':
+                case 'sine':
+                    // Sweep frequency with velocity
+                    const minFreq = isForward ? 150 : 200;
+                    const maxFreq = isForward ? 600 : 800;
+                    const freq = minFreq + (absVel / 500) * (maxFreq - minFreq);
+                    _whoosh.source.frequency.setTargetAtTime(freq, now, 0.05);
+                    
+                    // Sweep filter
+                    if (_whoosh.filter) {
+                        const filterFreq = 400 + absVel * 1.5;
+                        _whoosh.filter.frequency.setTargetAtTime(filterFreq, now, 0.05);
+                    }
+                    break;
+                    
+                case 'rumble':
+                    // Very subtle frequency change (stay in bass range)
+                    const rumbleFreq = 40 + (absVel / 100);
+                    _whoosh.source.frequency.setTargetAtTime(rumbleFreq, now, 0.1);
+                    break;
+                    
+                case 'whitenoise':
+                case 'crackle':
+                    // Only adjust filter sweep for noise
+                    if (_whoosh.filter) {
+                        const noiseFilterFreq = _whoosh.type === 'crackle' 
+                            ? 2000 + absVel * 2
+                            : 600 + absVel * 1.2;
+                        _whoosh.filter.frequency.setTargetAtTime(noiseFilterFreq, now, 0.05);
+                    }
+                    break;
+                    
+                case 'clicks':
+                    // Change click rate with velocity
+                    const clickRate = 5 + (absVel / 50);
+                    _whoosh.source.frequency.setTargetAtTime(clickRate, now, 0.05);
+                    break;
+                    
+                case 'vinyl_scratch':
+                    // DJ scratch: aggressive frequency + filter sweep
+                    const scratchMin = isForward ? 200 : 300;
+                    const scratchMax = isForward ? 1000 : 1400;
+                    const scratchFreq = scratchMin + (absVel / 400) * (scratchMax - scratchMin);
+                    _whoosh.source.frequency.setTargetAtTime(scratchFreq, now, 0.02); // Fast response
+                    
+                    // Sweep highpass filter for more aggression
+                    if (_whoosh.filter) {
+                        const hpFreq = 800 + absVel * 2; // Aggressive sweep
+                        _whoosh.filter.frequency.setTargetAtTime(Math.min(hpFreq, 4000), now, 0.02);
+                    }
+                    break;
+                    
+                case 'tape_flutter':
+                    // Tape warble: adjust base frequency and LFO rate with speed
+                    const tapeMin = isForward ? 180 : 250;
+                    const tapeMax = isForward ? 500 : 700;
+                    const tapeFreq = tapeMin + (absVel / 600) * (tapeMax - tapeMin);
+                    _whoosh.source.frequency.setTargetAtTime(tapeFreq, now, 0.08); // Slower for tape feel
+                    
+                    // Speed up warble rate as velocity increases
+                    if (_whoosh.lfo) {
+                        const lfoRate = 6 + (absVel / 200); // 6Hz → faster
+                        _whoosh.lfo.frequency.setTargetAtTime(Math.min(lfoRate, 15), now, 0.1);
+                    }
+                    break;
+                    
+                case 'mechanical':
+                    // Ratchet gear: moderate frequency sweep
+                    const mechMin = isForward ? 100 : 140;
+                    const mechMax = isForward ? 350 : 450;
+                    const mechFreq = mechMin + (absVel / 500) * (mechMax - mechMin);
+                    _whoosh.source.frequency.setTargetAtTime(mechFreq, now, 0.06);
+                    
+                    // Open up filter as speed increases
+                    if (_whoosh.filter) {
+                        const mechFilterFreq = 1200 + absVel * 1.5;
+                        _whoosh.filter.frequency.setTargetAtTime(Math.min(mechFilterFreq, 3000), now, 0.06);
+                    }
+                    break;
+            }
+        } catch (err) {
+            console.error('[mobile_note_highway] Whoosh update failed:', err);
+        }
+    }
+    
+    /**
+     * Stop whoosh sound
+     */
+    function stopWhoosh() {
+        if (!_whoosh.active) return;
+        
+        // Set inactive FIRST so updateWhoosh doesn't run while we're cleaning up
+        _whoosh.active = false;
+        _whoosh.type = null;
+        
+        // Clean up each node independently with try-catch so one failure doesn't block others
+        try {
+            if (_whoosh.source) {
+                try { _whoosh.source.stop(); } catch (e) { /* already stopped */ }
+                _whoosh.source.disconnect();
+                _whoosh.source = null;
+            }
+        } catch (err) {
+            console.warn('[mobile_note_highway] Source cleanup failed:', err);
+        }
+        
+        try {
+            if (_whoosh.noiseSource) {
+                try { _whoosh.noiseSource.stop(); } catch (e) { /* already stopped */ }
+                _whoosh.noiseSource.disconnect();
+                _whoosh.noiseSource = null;
+            }
+        } catch (err) {
+            console.warn('[mobile_note_highway] Noise source cleanup failed:', err);
+        }
+        
+        try {
+            if (_whoosh.oscillatorGain) {
+                _whoosh.oscillatorGain.disconnect();
+                _whoosh.oscillatorGain = null;
+            }
+        } catch (err) { /* ignore */ }
+        
+        try {
+            if (_whoosh.noiseGain) {
+                _whoosh.noiseGain.disconnect();
+                _whoosh.noiseGain = null;
+            }
+        } catch (err) { /* ignore */ }
+        
+        try {
+            if (_whoosh.filter) {
+                _whoosh.filter.disconnect();
+                _whoosh.filter = null;
+            }
+        } catch (err) { /* ignore */ }
+        
+        try {
+            if (_whoosh.gain) {
+                _whoosh.gain.disconnect();
+                _whoosh.gain = null;
+            }
+        } catch (err) { /* ignore */ }
+        
+        // Tape flutter cleanup (LFO + modulation nodes)
+        try {
+            if (_whoosh.lfo) {
+                try { _whoosh.lfo.stop(); } catch (e) { /* already stopped */ }
+                _whoosh.lfo.disconnect();
+                _whoosh.lfo = null;
+            }
+        } catch (err) { /* ignore */ }
+        
+        try {
+            if (_whoosh.lfoGain) {
+                _whoosh.lfoGain.disconnect();
+                _whoosh.lfoGain = null;
+            }
+        } catch (err) { /* ignore */ }
+        
+        try {
+            if (_whoosh.modulatedGain) {
+                _whoosh.modulatedGain.disconnect();
+                _whoosh.modulatedGain = null;
+            }
+        } catch (err) { /* ignore */ }
+        
+        console.log('[mobile_note_highway] 🌀 Whoosh stopped');
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
     // Gesture Detection
     // ═══════════════════════════════════════════════════════════════
     
@@ -1423,6 +1973,7 @@
         if (!highway) return;
         
         highway.addEventListener('touchstart', onGestureStart, { passive: true });
+        highway.addEventListener('touchmove', onGestureMove, { passive: false });
         highway.addEventListener('touchend', onGestureEnd, { passive: false });
     }
     
@@ -1434,6 +1985,7 @@
         if (!highway) return;
         
         highway.removeEventListener('touchstart', onGestureStart);
+        highway.removeEventListener('touchmove', onGestureMove);
         highway.removeEventListener('touchend', onGestureEnd);
     }
     
@@ -1444,10 +1996,120 @@
         if (!e.touches || e.touches.length !== 1) return;
         
         const touch = e.touches[0];
+        const audio = document.getElementById('audio');
+        
         _highway.gestureStartX = touch.clientX;
         _highway.gestureStartY = touch.clientY;
         _highway.gestureStartTime = Date.now();
         _highway.gestureActive = true;
+        _highway.scrubActive = false;
+        _highway.scrubStartTime = audio ? audio.currentTime : 0;
+        _highway.scrubLastUpdate = 0;
+        _highway.scrubLastDeltaY = 0;
+        
+        console.log('[mobile_note_highway] touchstart:', {
+            x: touch.clientX,
+            y: touch.clientY,
+            audioTime: _highway.scrubStartTime
+        });
+    }
+    
+    /**
+     * Handle touch move for scrubbing
+     */
+    function onGestureMove(e) {
+        if (!_highway.gestureActive) {
+            console.log('[mobile_note_highway] touchmove ignored - gestureActive=false');
+            return;
+        }
+        if (!e.touches || e.touches.length !== 1) return;
+        
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - _highway.gestureStartX;
+        const deltaY = touch.clientY - _highway.gestureStartY;
+        
+        // Prevent pull-to-refresh on any vertical movement
+        if (Math.abs(deltaY) > 5) {
+            e.preventDefault();
+        }
+        
+        console.log('[mobile_note_highway] touchmove:', {
+            deltaX,
+            deltaY,
+            absDeltaY: Math.abs(deltaY),
+            threshold: CFG.scrubMinMovement,
+            scrubActive: _highway.scrubActive
+        });
+        
+        // Enter scrub mode if vertical movement exceeds threshold
+        if (!_highway.scrubActive && Math.abs(deltaY) > CFG.scrubMinMovement) {
+            _highway.scrubActive = true;
+            // Remember if audio was playing before scrub started
+            const audio = document.getElementById('audio');
+            _highway.wasPlayingBeforeScrub = audio && !audio.paused;
+            
+            // Initialize whoosh audio context
+            initWhoosh();
+            
+            console.log('[mobile_note_highway] ✅ SCRUB MODE ACTIVATED, wasPlaying:', _highway.wasPlayingBeforeScrub);
+        }
+        
+        // If in scrub mode, update audio position
+        if (_highway.scrubActive) {
+            const now = Date.now();
+            // Throttle updates (but not the first one)
+            if (_highway.scrubLastUpdate > 0 && now - _highway.scrubLastUpdate < CFG.scrubThrottleMs) {
+                return; // Throttle updates
+            }
+            
+            const audio = document.getElementById('audio');
+            if (!audio) {
+                console.log('[mobile_note_highway] No audio element');
+                return;
+            }
+            
+            // Pause audio during scrub (iOS-compatible)
+            if (!audio.paused) {
+                audio.pause();
+            }
+            
+            // Calculate velocity: pixels per second (use gestureStartTime for first frame)
+            const prevTime = _highway.scrubLastUpdate || _highway.gestureStartTime;
+            const deltaTime = now - prevTime;
+            const deltaYChange = deltaY - _highway.scrubLastDeltaY;
+            _highway.scrubLastDeltaY = deltaY;
+            const velocity = deltaTime > 0 ? (deltaYChange / deltaTime) * 1000 : 0;
+            
+            _highway.scrubLastUpdate = now;
+            
+            // Update visual position based on total movement
+            // Apply scrub sensitivity multiplier from settings
+            const sensitivity = getScrubSensitivity();
+            const timeDelta = deltaY * CFG.scrubTimePerPixel * sensitivity;
+            const newTime = Math.max(0, Math.min(audio.duration || 0, _highway.scrubStartTime + timeDelta));
+            
+            console.log('[mobile_note_highway] Scrubbing:', {
+                deltaY,
+                velocity: velocity.toFixed(1),
+                newTime: newTime.toFixed(2),
+                whooshActive: _whoosh.active,
+                absVelocity: Math.abs(velocity)
+            });
+            
+            // Update lastAudioTime to prevent jump detector from resetting
+            if (typeof lastAudioTime !== 'undefined') lastAudioTime = newTime;
+            
+            // Set position
+            audio.currentTime = newTime;
+            
+            // Start or update whoosh sound based on velocity (lowered threshold for easier triggering)
+            if (!_whoosh.active && Math.abs(velocity) > 30) {
+                console.log('[mobile_note_highway] 🌀 Attempting to start whoosh, velocity:', velocity.toFixed(1));
+                startWhoosh(velocity);
+            } else if (_whoosh.active) {
+                updateWhoosh(velocity);
+            }
+        }
     }
     
     /**
@@ -1462,8 +2124,41 @@
         const deltaY = touch.clientY - _highway.gestureStartY;
         const deltaTime = Date.now() - _highway.gestureStartTime;
         
-        _highway.gestureActive = false;
+        const wasScrubbing = _highway.scrubActive;
+         
+        console.log('[mobile_note_highway] touchend:', {
+            deltaX,
+            deltaY,
+            deltaTime,
+            wasScrubbing
+        });
         
+        _highway.gestureActive = false;
+        _highway.scrubActive = false;
+        
+        // If we were scrubbing, restore normal playback and exit
+        if (wasScrubbing) {
+            e.preventDefault();
+            
+            // Stop whoosh sound
+            stopWhoosh();
+            
+            const audio = document.getElementById('audio');
+            if (audio) {
+                audio.playbackRate = 1.0;
+                // Restore play state from before scrub
+                if (_highway.wasPlayingBeforeScrub && audio.paused) {
+                    audio.play().catch(() => {});
+                } else if (!_highway.wasPlayingBeforeScrub && !audio.paused) {
+                    audio.pause();
+                }
+            }
+            
+            console.log('[mobile_note_highway] Exiting scrub mode, playbackRate restored to 1.0');
+            return;
+        }
+        
+        // Check for tap (quick touch with minimal movement)
         const isQuickTap = deltaTime < CFG.tapMaxDurationMs && Math.abs(deltaX) < CFG.tapMaxMovementPx && Math.abs(deltaY) < CFG.tapMaxMovementPx;
         
         if (isQuickTap) {
@@ -1498,14 +2193,6 @@
                     _timers.doubleTap = null;
                 }, CFG.doubleTapWindowMs);
             }
-            return;
-        }
-        
-        const isSwipe = Math.abs(deltaX) > CFG.swipeHorizontalThreshold && deltaTime < CFG.swipeMaxDurationMs && Math.abs(deltaX) > Math.abs(deltaY) * 1.5;
-        
-        if (isSwipe) {
-            e.preventDefault();
-            handleSwipe(deltaX > 0 ? 'right' : 'left');
             return;
         }
     }
@@ -1582,23 +2269,6 @@
                 showGestureFeedback('Loop Cleared');
             }
         }
-    }
-    
-    /**
-     * Handle swipe gesture (Seek ±5 seconds)
-     */
-    function handleSwipe(direction) {
-        const audio = document.getElementById('audio');
-        if (!audio) return;
-        
-        const seekAmount = direction === 'right' ? 5 : -5;
-        const currentTime = audio.currentTime;
-        const newTime = Math.max(0, Math.min(audio.duration || 0, currentTime + seekAmount));
-        
-        if (typeof lastAudioTime !== 'undefined') lastAudioTime = newTime;
-        
-        audio.currentTime = newTime;
-        showGestureFeedback(direction === 'right' ? '+5s' : '-5s');
     }
     
     /**
@@ -1880,10 +2550,14 @@
                 _timers.pending.forEach(clearTimeout);
                 _timers.pending = [];
                 
+                // Stop any active whoosh from previous song/scrubbing
+                stopWhoosh();
+                
                 await origPlaySong(filename, arrangement);
                 
                 syncLoopMarkerState();
                 
+                scheduleEnhancement(initWhoosh, 100);
                 scheduleEnhancement(reapplyControlOrder, 50);
                 scheduleEnhancement(enhanceSectionMap, 300);
                 scheduleEnhancement(adjustPlayerHud, 300);
@@ -1891,6 +2565,25 @@
                 scheduleEnhancement(enableControlsGestures, 150);
                 scheduleEnhancement(startHighway3dObserver, 600);
             };
+        }
+        
+        // Stop whoosh when user navigates away or switches tabs
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                stopWhoosh();
+            }
+        });
+        
+        window.addEventListener('pagehide', () => {
+            stopWhoosh();
+        });
+        
+        // Stop whoosh when audio is paused (covers pause button, space bar, etc.)
+        const audio = document.querySelector('audio');
+        if (audio) {
+            audio.addEventListener('pause', () => {
+                stopWhoosh();
+            });
         }
         
         // Hook into loop functions to sync marker state when user clicks UI buttons
@@ -1936,5 +2629,51 @@
     } else {
         init();
     }
+    
+    // Export settings function for settings panel
+    window.mnhSetWhooshType = function(type) {
+        try {
+            localStorage.setItem('mobile_note_highway.whooshType', type);
+            console.log('[mobile_note_highway] Whoosh type changed to:', type);
+        } catch (err) {
+            console.error('[mobile_note_highway] Failed to save whoosh type:', err);
+        }
+    };
+    
+    window.mnhSetAudioEnabled = function(enabled) {
+        try {
+            localStorage.setItem('mobile_note_highway.audioEnabled', String(enabled));
+            console.log('[mobile_note_highway] Audio feedback', enabled ? 'enabled' : 'disabled');
+            // Stop any active whoosh if disabling
+            if (!enabled && _whoosh.active) {
+                stopWhoosh();
+            }
+        } catch (err) {
+            console.error('[mobile_note_highway] Failed to save audio enabled:', err);
+        }
+    };
+    
+    window.mnhSetScrubSensitivity = function(value) {
+        try {
+            const sensitivity = parseFloat(value);
+            localStorage.setItem('mobile_note_highway.scrubSensitivity', String(sensitivity));
+            console.log('[mobile_note_highway] Scrub sensitivity changed to:', sensitivity.toFixed(1) + 'x');
+        } catch (err) {
+            console.error('[mobile_note_highway] Failed to save scrub sensitivity:', err);
+        }
+    };
+    
+    window.mnhSetCollapsedControl = function(device, value) {
+        try {
+            const key = 'mobile_note_highway.collapsed.' + device;
+            // For tablet, value is an array; for phone, it's a string
+            const storedValue = Array.isArray(value) ? value.slice(0, 3).join(',') : value;
+            localStorage.setItem(key, storedValue);
+            console.log('[mobile_note_highway] Collapsed controls (' + device + '):', storedValue);
+            // TODO: Implement actual show/hide logic
+        } catch (err) {
+            console.error('[mobile_note_highway] Failed to save collapsed control setting:', err);
+        }
+    };
     
 })();
