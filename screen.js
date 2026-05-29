@@ -111,36 +111,95 @@
     // State
     // ═══════════════════════════════════════════════════════════════
     
-    let _toolsExpanded = false;
-    let _swipeIndicator = null;
+    // UI state and refs
+    const _ui = {
+        expanded: false,           // was _toolsExpanded
+        swipeIndicator: null,      // was _swipeIndicator
+    };
+    
+    // Highway gesture state (swipes, taps, loop markers)
+    const _highway = {
+        gestureStartX: 0,          // was _gestureStartX
+        gestureStartY: 0,          // was _gestureStartY
+        gestureStartTime: 0,       // was _gestureStartTime
+        gestureActive: false,      // was _gestureActive
+        lastTapTime: 0,            // was _lastTapTime
+        loopMarkerState: 'ready',  // was _loopMarkerState ('ready' | 'a-set' | 'b-set')
+    };
+    
+    // Controls gesture state (swipe up/down to expand/collapse)
+    const _controls = {
+        gestureStartX: 0,          // was _controlsGestureStartX
+        gestureStartY: 0,          // was _controlsGestureStartY
+        gestureStartTime: 0,       // was _controlsGestureStartTime
+        gestureActive: false,      // was _controlsGestureActive
+    };
+    
+    // Original styles (for restore on cleanup)
+    const _restore = {
+        sectionMap: null,          // was _sectionMapOriginalStyles
+        playerHud: null,           // was _playerHudOriginalStyles
+        highway3dOverlay: null,    // was _highway3dOverlayOriginalStyles
+    };
+    
+    // Timers (for cleanup on song change / screen exit)
+    const _timers = {
+        pending: [],               // was _pendingTimeouts
+        doubleTap: null,           // was _pendingDoubleTapTimeout
+        resize: null,              // was _resizeTimeout
+    };
+    
+    // Observers (managed by createManagedObserver)
     let _controlsObserver = null;
-    let _sectionMapOriginalStyles = null;
     let _sectionMapObserver = null;
-    let _playerHudOriginalStyles = null;
-    let _highway3dOverlayOriginalStyles = null;
     let _highway3dObserver = null;
     let _highway3dAdjusted = false;
     
-    // Gesture state (highway swipes and tap)
-    let _gestureStartX = 0;
-    let _gestureStartY = 0;
-    let _gestureStartTime = 0;
-    let _gestureActive = false;
-    let _lastTapTime = 0;
-    let _loopMarkerState = 'ready'; // 'ready' | 'a-set' | 'b-set'
+    // ═══════════════════════════════════════════════════════════════
+    // Constants
+    // ═══════════════════════════════════════════════════════════════
     
-    // Controls gesture state (swipe up/down to expand/collapse)
-    let _controlsGestureStartX = 0;
-    let _controlsGestureStartY = 0;
-    let _controlsGestureStartTime = 0;
-    let _controlsGestureActive = false;
+    // Wrapper element IDs
+    const WRAPPER_IDS = {
+        MASTERY: 'mobile-mastery-wrapper',
+        SPEED: 'mobile-speed-wrapper',
+        AV: 'mobile-av-wrapper',
+    };
     
-    // Pending timeouts (for cleanup on song change / screen exit)
-    let _pendingTimeouts = [];
-    let _pendingDoubleTapTimeout = null;
+    // Control order values (CSS flexbox order property)
+    const CONTROL_ORDER = {
+        BACK: '-1',
+        PLAY: '0',
+        ARRANGEMENT: '1',
+        DIFFICULTY: '2',
+        SPEED: '3',
+        REST: '100',
+    };
     
-    // Resize handling
-    let _resizeTimeout = null;
+    // Helper element IDs
+    const HELPER_IDS = {
+        SWIPE_INDICATOR: 'mobile-swipe-indicator',
+        END_SPACER: 'mobile-end-spacer',
+    };
+    
+    /**
+     * Check if element is inside one of our wrapper divs
+     * (wrappers fully own their children - skip observer processing)
+     */
+    function isInsideWrapper(element) {
+        const parentId = element?.parentElement?.id;
+        return parentId === WRAPPER_IDS.MASTERY ||
+               parentId === WRAPPER_IDS.SPEED ||
+               parentId === WRAPPER_IDS.AV;
+    }
+    
+    /**
+     * Check if element is one of our helper elements (indicator/spacer)
+     */
+    function isHelperElement(element) {
+        const id = element?.id;
+        return id === HELPER_IDS.SWIPE_INDICATOR || id === HELPER_IDS.END_SPACER;
+    }
     
     // ═══════════════════════════════════════════════════════════════
     // Observer Utilities
@@ -345,10 +404,10 @@
      */
     function setupResizeListener() {
         window.addEventListener('resize', () => {
-            if (_resizeTimeout) {
-                clearTimeout(_resizeTimeout);
+            if (_timers.resize) {
+                clearTimeout(_timers.resize);
             }
-            _resizeTimeout = setTimeout(handleResize, 300);
+            _timers.resize = setTimeout(handleResize, 300);
         });
     }
     
@@ -379,11 +438,8 @@
         if (!btn) return;
         // Already transformed?
         if (btn.id === 'mobile-back-btn') {
-            console.log('[mobile_note_highway] transformCloseButton: already transformed, innerHTML length =', btn.innerHTML.length);
             return;
         }
-        
-        console.log('[mobile_note_highway] transformCloseButton: TRANSFORMING. Original innerHTML:', btn.innerHTML.substring(0, 100));
         
         // Save original innerHTML for cleanup restoration
         if (!btn.dataset.mobileOriginalHtml) {
@@ -401,19 +457,6 @@
         btn.id = 'mobile-back-btn';
         btn.setAttribute('aria-label', 'Back to Library');
         btn.setAttribute('title', 'Back to Library');
-        
-        console.log('[mobile_note_highway] transformCloseButton: DONE. New innerHTML:', btn.innerHTML.substring(0, 200));
-        console.log('[mobile_note_highway] transformCloseButton: button classes =', btn.className);
-        console.log('[mobile_note_highway] transformCloseButton: button computed display =', window.getComputedStyle(btn).display);
-        
-        // Check after a microtask to see if something wipes it
-        setTimeout(() => {
-            const checkBtn = document.getElementById('mobile-back-btn');
-            if (checkBtn) {
-                const chev = checkBtn.querySelector('.mobile-back-chevron');
-                console.log('[mobile_note_highway] After 100ms - chevron present:', !!chev, 'dimensions:', chev ? `${chev.offsetWidth}x${chev.offsetHeight}` : 'N/A');
-            }
-        }, 100);
     }
     
     /**
@@ -442,43 +485,6 @@
     // ═══════════════════════════════════════════════════════════════
     // Essential Control Detection
     // ═══════════════════════════════════════════════════════════════
-    
-    // ═══════════════════════════════════════════════════════════════
-    // Control Order & Styling
-    // ═══════════════════════════════════════════════════════════════
-    
-    /**
-     * Apply order and margin values to priority controls
-     * Priority order: back=-1, play=0, arr=1, diff=2, speed=3, rest=100+
-     */
-    function applyControlOrder() {
-        const arrSelect = document.getElementById('arr-select');
-        const masteryWrapper = document.getElementById('mobile-mastery-wrapper');
-        const speedWrapper = document.getElementById('mobile-speed-wrapper');
-        const avWrapper = document.getElementById('mobile-av-wrapper');
-        
-        if (arrSelect) {
-            arrSelect.style.order = '1';
-            arrSelect.style.marginLeft = '12px';
-            arrSelect.style.width = CFG.selectWidth + 'px';
-            arrSelect.style.marginRight = (!IS_TABLET && _toolsExpanded) ? 'auto' : '0';
-        }
-        
-        if (masteryWrapper) {
-            masteryWrapper.style.order = '2';
-            masteryWrapper.style.marginLeft = '0';
-        }
-        
-        if (speedWrapper) {
-            speedWrapper.style.order = '3';
-            speedWrapper.style.marginLeft = '0';
-            speedWrapper.style.marginRight = '0';
-        }
-        
-        if (avWrapper) {
-            avWrapper.style.order = '100';
-        }
-    }
     
     /**
      * Check if an element should remain visible (not hidden in Tools)
@@ -521,7 +527,7 @@
     function hideControl(el) {
         if (!el.classList.contains('mobile-hide-advanced')) {
             el.classList.add('mobile-hide-advanced');
-            if (_toolsExpanded) {
+            if (_ui.expanded) {
                 el.classList.remove('mobile-hidden');
             } else {
                 el.classList.add('mobile-hidden');
@@ -530,8 +536,49 @@
     }
     
     // ═══════════════════════════════════════════════════════════════
+    // Control Order & Styling
+    // ═══════════════════════════════════════════════════════════════
+    
+    /**
+     * Apply order and margin values to priority controls
+     * Priority order: back=-1, play=0, arr=1, diff=2, speed=3, rest=100+
+     */
+    function applyControlOrder() {
+        const arrSelect = document.getElementById('arr-select');
+        const masteryWrapper = document.getElementById(WRAPPER_IDS.MASTERY);
+        const speedWrapper = document.getElementById(WRAPPER_IDS.SPEED);
+        const avWrapper = document.getElementById(WRAPPER_IDS.AV);
+        
+        if (arrSelect) {
+            arrSelect.style.order = CONTROL_ORDER.ARRANGEMENT;
+            arrSelect.style.marginLeft = '12px';
+            arrSelect.style.width = CFG.selectWidth + 'px';
+            arrSelect.style.marginRight = (!IS_TABLET && _ui.expanded) ? 'auto' : '0';
+        }
+        
+        if (masteryWrapper) {
+            masteryWrapper.style.order = CONTROL_ORDER.DIFFICULTY;
+            masteryWrapper.style.marginLeft = '0';
+        }
+        
+        if (speedWrapper) {
+            speedWrapper.style.order = CONTROL_ORDER.SPEED;
+            speedWrapper.style.marginLeft = '0';
+            speedWrapper.style.marginRight = '0';
+        }
+        
+        if (avWrapper) {
+            avWrapper.style.order = CONTROL_ORDER.REST;
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
     // Collapsible Controls
     // ═══════════════════════════════════════════════════════════════
+    
+    // ─────────────────────────────────────────────────────────────────
+    // Main Enhancement
+    // ─────────────────────────────────────────────────────────────────
     
     /**
      * Enhance player controls for mobile:
@@ -597,7 +644,7 @@
         if (speedSlider && speedLabel && speedSlider.parentElement === controls && speedLabel.parentElement === controls) {
             // Create wrapper container
             const speedWrapper = document.createElement('div');
-            speedWrapper.id = 'mobile-speed-wrapper';  // Unique ID for later targeting
+            speedWrapper.id = WRAPPER_IDS.SPEED;  // Unique ID for later targeting
             speedWrapper.style.display = 'inline-flex';
             speedWrapper.style.flexDirection = 'column';
             speedWrapper.style.alignItems = 'center';
@@ -641,7 +688,7 @@
             
             // Create column wrapper
             const masteryWrapper = document.createElement('div');
-            masteryWrapper.id = 'mobile-mastery-wrapper';
+            masteryWrapper.id = WRAPPER_IDS.MASTERY;
             masteryWrapper.style.display = 'inline-flex';
             masteryWrapper.style.flexDirection = 'column';
             masteryWrapper.style.alignItems = 'center';
@@ -709,7 +756,7 @@
             
             // Create column wrapper
             const avWrapper = document.createElement('div');
-            avWrapper.id = 'mobile-av-wrapper';  // Unique ID for later targeting
+            avWrapper.id = WRAPPER_IDS.AV;  // Unique ID for later targeting
             avWrapper.style.display = 'inline-flex';
             avWrapper.style.flexDirection = 'column';
             avWrapper.style.alignItems = 'center';
@@ -778,7 +825,7 @@
             
             if (!isPriority && !el.id?.startsWith('mobile-')) {
                 // Non-priority controls: order 100
-                el.style.order = '100';
+                el.style.order = CONTROL_ORDER.REST;
             }
             
             if (!isEssentialControl(el)) {
@@ -799,10 +846,10 @@
         setTimeout(() => reclassifyAllControls(), 600);
         
         // Create minimalist chevron indicator (floats above controls with bounce animation)
-        if (!_swipeIndicator) {
-            _swipeIndicator = document.createElement('div');
-            _swipeIndicator.id = 'mobile-swipe-indicator';
-            _swipeIndicator.style.cssText = `
+        if (!_ui.swipeIndicator) {
+            _ui.swipeIndicator = document.createElement('div');
+            _ui.swipeIndicator.id = HELPER_IDS.SWIPE_INDICATOR;
+            _ui.swipeIndicator.style.cssText = `
                 position: absolute;
                 top: -18px;
                 left: 50%;
@@ -826,16 +873,16 @@
                 animation: chevronBounce 2.5s ease-in-out infinite;
             `;
             
-            _swipeIndicator.appendChild(chevronInner);
-            controls.appendChild(_swipeIndicator);
+            _ui.swipeIndicator.appendChild(chevronInner);
+            controls.appendChild(_ui.swipeIndicator);
         }
         
         // Inject a phantom end-spacer that reserves 56px on the LAST flex row
         // for the floating "?" help button. Using order:9999 + flex-shrink:0
         // ensures it always lands as the last item on whatever row is last.
-        if (!document.getElementById('mobile-end-spacer')) {
+        if (!document.getElementById(HELPER_IDS.END_SPACER)) {
             const spacer = document.createElement('div');
-            spacer.id = 'mobile-end-spacer';
+            spacer.id = HELPER_IDS.END_SPACER;
             spacer.setAttribute('aria-hidden', 'true');
             controls.appendChild(spacer);
         }
@@ -853,12 +900,16 @@
         });
         if (closeButton) {
             transformCloseButton(closeButton);
-            closeButton.style.order = '-1';
+            closeButton.style.order = CONTROL_ORDER.BACK;
             closeButton.classList.remove('ml-auto');
             closeButton.style.marginLeft = '0';
             closeButton.style.marginRight = '12px';
         }
     }
+    
+    // ─────────────────────────────────────────────────────────────────
+    // Re-application & Classification
+    // ─────────────────────────────────────────────────────────────────
     
     /**
      * Reapply control order values without recreating wrappers.
@@ -869,9 +920,9 @@
         applyControlOrder();
         
         // Re-set wrapper display (can get cleared on song change)
-        const masteryWrapper = document.getElementById('mobile-mastery-wrapper');
-        const speedWrapper = document.getElementById('mobile-speed-wrapper');
-        const avWrapper = document.getElementById('mobile-av-wrapper');
+        const masteryWrapper = document.getElementById(WRAPPER_IDS.MASTERY);
+        const speedWrapper = document.getElementById(WRAPPER_IDS.SPEED);
+        const avWrapper = document.getElementById(WRAPPER_IDS.AV);
         
         if (masteryWrapper) {
             masteryWrapper.style.display = 'inline-flex';
@@ -916,8 +967,7 @@
         let fixedCount = 0;
         Array.from(controls.children).forEach(el => {
             // Skip our injected helpers
-            if (el.id === 'mobile-swipe-indicator') return;
-            if (el.id === 'mobile-end-spacer') return;
+            if (isHelperElement(el)) return;
             
             // Set order for non-priority controls (back/play/arr/seekBy are priority, mobile-* excluded)
             const isPriority = el.id === 'arr-select' || 
@@ -926,7 +976,7 @@
                               (el.tagName === 'BUTTON' && el.getAttribute('onclick')?.includes('seekBy('));
             
             if (!isPriority && !el.id?.startsWith('mobile-') && !el.style.order) {
-                el.style.order = '100';
+                el.style.order = CONTROL_ORDER.REST;
             }
             
             if (isEssentialControl(el)) {
@@ -941,7 +991,7 @@
                 const wasFixed = !el.classList.contains('mobile-hide-advanced');
                 el.classList.add('mobile-hide-advanced');
                 // Use CSS class instead of inline style
-                if (_toolsExpanded) {
+                if (_ui.expanded) {
                     el.classList.remove('mobile-hidden');
                 } else {
                     el.classList.add('mobile-hidden');
@@ -957,14 +1007,18 @@
             const onclick = btn.getAttribute('onclick');
             return onclick && onclick.includes("showScreen('home')");
         });
-        if (closeButton && closeButton.style.order !== '-1') {
+        if (closeButton && closeButton.style.order !== CONTROL_ORDER.BACK) {
             transformCloseButton(closeButton);
-            closeButton.style.order = '-1';
+            closeButton.style.order = CONTROL_ORDER.BACK;
             closeButton.classList.remove('ml-auto');
             closeButton.style.marginLeft = '0';
             closeButton.style.marginRight = '12px';
         }
     }
+    
+    // ─────────────────────────────────────────────────────────────────
+    // Observer & Toggle
+    // ─────────────────────────────────────────────────────────────────
     
     /**
      * Start observing #player-controls for new buttons added by plugins
@@ -987,15 +1041,8 @@
                     if (mutation.type === 'childList') {
                         mutation.addedNodes.forEach(node => {
                             if (node.nodeType !== Node.ELEMENT_NODE) return;
-                            if (node.id === 'mobile-swipe-indicator') return;
-                            if (node.id === 'mobile-end-spacer') return;
-                            
-                            const parentId = node.parentElement?.id;
-                            if (parentId === 'mobile-mastery-wrapper' || 
-                                parentId === 'mobile-speed-wrapper' || 
-                                parentId === 'mobile-av-wrapper') {
-                                return;
-                            }
+                            if (isHelperElement(node)) return;
+                            if (isInsideWrapper(node)) return;
                             
                             if (node.tagName === 'BUTTON') {
                                 node.classList.add('mobile-button');
@@ -1008,15 +1055,8 @@
                     } else if (mutation.type === 'attributes') {
                         const target = mutation.target;
                         
-                        if (target.id === 'mobile-swipe-indicator') return;
-                        if (target.id === 'mobile-end-spacer') return;
-                        
-                        const parentId = target.parentElement?.id;
-                        if (parentId === 'mobile-mastery-wrapper' || 
-                            parentId === 'mobile-speed-wrapper' || 
-                            parentId === 'mobile-av-wrapper') {
-                            return;
-                        }
+                        if (isHelperElement(target)) return;
+                        if (isInsideWrapper(target)) return;
                         
                         if (target.nodeType === Node.ELEMENT_NODE && !isEssentialControl(target)) {
                             if (!target.classList.contains('mobile-hide-advanced')) {
@@ -1025,7 +1065,7 @@
                             if (target.tagName === 'BUTTON' && !target.classList.contains('mobile-button')) {
                                 target.classList.add('mobile-button');
                             }
-                            if (!_toolsExpanded && !target.classList.contains('mobile-hidden')) {
+                            if (!_ui.expanded && !target.classList.contains('mobile-hidden')) {
                                 target.classList.add('mobile-hidden');
                             }
                         }
@@ -1052,22 +1092,22 @@
      */
     function toggleAdvancedControls(forceState) {
         if (typeof forceState === 'boolean') {
-            _toolsExpanded = forceState;
+            _ui.expanded = forceState;
         } else {
-            _toolsExpanded = !_toolsExpanded;
+            _ui.expanded = !_ui.expanded;
         }
         
         // Update chevron indicator - flip and reposition based on mode
-        if (_swipeIndicator) {
-            if (_toolsExpanded) {
+        if (_ui.swipeIndicator) {
+            if (_ui.expanded) {
                 // Expanded: down chevron (normal), position higher (2 rows of controls)
                 // Tablet needs more clearance due to larger layout
-                _swipeIndicator.style.top = IS_TABLET ? '-42px' : '-28px';
-                _swipeIndicator.style.transform = 'translateX(-50%) scaleY(1)';
+                _ui.swipeIndicator.style.top = IS_TABLET ? '-42px' : '-28px';
+                _ui.swipeIndicator.style.transform = 'translateX(-50%) scaleY(1)';
             } else {
                 // Collapsed: up chevron (flipped), position closer (1 row of controls)
-                _swipeIndicator.style.top = '-18px';
-                _swipeIndicator.style.transform = 'translateX(-50%) scaleY(-1)';
+                _ui.swipeIndicator.style.top = '-18px';
+                _ui.swipeIndicator.style.transform = 'translateX(-50%) scaleY(-1)';
             }
         }
 
@@ -1085,7 +1125,7 @@
             });
             if (closeButton) {
                 transformCloseButton(closeButton);
-                closeButton.style.order = '-1';
+                closeButton.style.order = CONTROL_ORDER.BACK;
                 closeButton.style.marginLeft = '0';
                 closeButton.style.marginRight = '12px';
             }
@@ -1093,11 +1133,9 @@
         
         // Re-scan ALL controls to catch any late-injected buttons
         if (controls) {
-            console.log('[mobile_note_highway] [toggle] Re-scanning controls, _toolsExpanded=', _toolsExpanded);
             Array.from(controls.children).forEach(el => {
                 // Skip our injected helpers
-                if (el.id === 'mobile-swipe-indicator') return;
-                if (el.id === 'mobile-end-spacer') return;
+                if (isHelperElement(el)) return;
                 
                 // Set order for non-priority controls (back/play/arr/seekBy are priority, mobile-* excluded)
                 const isPriority = el.id === 'arr-select' || 
@@ -1106,7 +1144,7 @@
                                   (el.tagName === 'BUTTON' && el.getAttribute('onclick')?.includes('seekBy('));
                 
                 if (!isPriority && !el.id?.startsWith('mobile-') && !el.style.order) {
-                    el.style.order = '100';
+                    el.style.order = CONTROL_ORDER.REST;
                 }
                 
                 const isEssential = isEssentialControl(el);
@@ -1119,7 +1157,7 @@
                     if (!el.classList.contains('mobile-hide-advanced')) {
                         el.classList.add('mobile-hide-advanced');
                     }
-                    if (_toolsExpanded) {
+                    if (_ui.expanded) {
                         el.classList.remove('mobile-hidden');
                     } else {
                         el.classList.add('mobile-hidden');
@@ -1134,7 +1172,7 @@
             });
             if (closeButton) {
                 transformCloseButton(closeButton);
-                closeButton.style.order = '-1';
+                closeButton.style.order = CONTROL_ORDER.BACK;
                 closeButton.classList.remove('ml-auto');
                 closeButton.style.marginLeft = '0';
                 closeButton.style.marginRight = '12px';
@@ -1142,113 +1180,19 @@
         }
     }
     
-    // ═══════════════════════════════════════════════════════════════
-    // Cleanup
-    // ═══════════════════════════════════════════════════════════════
+    // ─────────────────────────────────────────────────────────────────
+    // Utility & Scheduling
+    // ─────────────────────────────────────────────────────────────────
     
     /**
      * Schedule an enhancement with automatic cleanup tracking
      */
     function scheduleEnhancement(fn, delay) {
         const id = setTimeout(() => {
-            _pendingTimeouts = _pendingTimeouts.filter(tid => tid !== id);
+            _timers.pending = _timers.pending.filter(tid => tid !== id);
             fn();
         }, delay);
-        _pendingTimeouts.push(id);
-    }
-    
-    /**
-     * Remove Mobile Note Highway enhancements
-     */
-    function cleanup() {
-        // Cancel all pending timeouts
-        _pendingTimeouts.forEach(clearTimeout);
-        _pendingTimeouts = [];
-        
-        if (_pendingDoubleTapTimeout) {
-            clearTimeout(_pendingDoubleTapTimeout);
-            _pendingDoubleTapTimeout = null;
-        }
-        
-        // Stop observing
-        stopControlsObserver();
-        
-        // Remove swipe indicator
-        if (_swipeIndicator && _swipeIndicator.parentElement) {
-            _swipeIndicator.remove();
-            _swipeIndicator = null;
-        }
-        
-        // Remove phantom end-spacer
-        const endSpacer = document.getElementById('mobile-end-spacer');
-        if (endSpacer) endSpacer.remove();
-        
-        // Get controls element
-        const controls = document.getElementById('player-controls');
-
-        // Restore close button to original state and clear positioning
-        if (controls) {
-            const backBtn = controls.querySelector('#mobile-back-btn') || Array.from(controls.querySelectorAll('button')).find(btn => {
-                const onclick = btn.getAttribute('onclick');
-                return onclick && onclick.includes("showScreen('home')");
-            });
-            if (backBtn) {
-                restoreCloseButton(backBtn);
-                backBtn.style.order = '';
-                backBtn.style.marginLeft = '';
-                backBtn.style.marginRight = '';
-            }
-        }
-
-        // Restore all hidden controls
-        document.querySelectorAll('.mobile-hide-advanced').forEach(el => {
-            el.classList.remove('mobile-hide-advanced');
-            el.style.display = '';
-        });
-        
-        // Unwrap speed slider/label if wrapped
-        const speedSlider = document.getElementById('speed-slider');
-        const speedLabel = document.getElementById('speed-label');
-        if (speedSlider && speedLabel && speedSlider.parentElement && speedSlider.parentElement !== controls) {
-            const wrapper = speedSlider.parentElement;
-            if (controls && wrapper.parentElement === controls) {
-                // Move elements back to controls
-                controls.insertBefore(speedSlider, wrapper);
-                controls.insertBefore(speedLabel, wrapper);
-                // Remove wrapper
-                wrapper.remove();
-                // Restore original styles
-                speedLabel.style.fontSize = '';
-                speedLabel.style.lineHeight = '';
-                speedLabel.style.marginBottom = '';
-                speedLabel.style.paddingTop = '';
-                speedLabel.style.paddingBottom = '';
-                speedLabel.style.textAlign = '';
-                speedLabel.style.width = '';
-                speedSlider.style.minHeight = '';
-                speedSlider.style.height = '';
-            }
-        }
-        
-        // Reset touch target sizes
-        if (controls) {
-            Array.from(controls.querySelectorAll('button')).forEach(btn => {
-                btn.style.minHeight = '';
-                btn.style.minWidth = '';
-                btn.style.padding = '';
-            });
-            
-            // Restore seek button labels
-            Array.from(controls.querySelectorAll('.seek-label')).forEach(label => {
-                label.style.display = '';
-            });
-            
-            Array.from(controls.querySelectorAll('input[type="range"]')).forEach(slider => {
-                slider.style.minHeight = '';
-            });
-        }
-        
-        _toolsExpanded = false;
+        _timers.pending.push(id);
     }
     
     // ═══════════════════════════════════════════════════════════════
@@ -1285,8 +1229,8 @@
         if (!sectionMap) return;
         
         // Store original styles for cleanup
-        if (!_sectionMapOriginalStyles) {
-            _sectionMapOriginalStyles = {
+        if (!_restore.sectionMap) {
+            _restore.sectionMap = {
                 height: sectionMap.style.height || '20px'
             };
         }
@@ -1334,9 +1278,9 @@
         stopSectionMapObserver();
         
         // Restore height
-        if (_sectionMapOriginalStyles) {
-            sectionMap.style.height = _sectionMapOriginalStyles.height;
-            _sectionMapOriginalStyles = null;
+        if (_restore.sectionMap) {
+            sectionMap.style.height = _restore.sectionMap.height;
+            _restore.sectionMap = null;
         }
         
         // Restore label visibility
@@ -1358,8 +1302,8 @@
         if (!playerHud) return;
         
         // Store original styles for cleanup
-        if (!_playerHudOriginalStyles) {
-            _playerHudOriginalStyles = {
+        if (!_restore.playerHud) {
+            _restore.playerHud = {
                 top: playerHud.style.top || '0'
             };
         }
@@ -1376,9 +1320,9 @@
         if (!playerHud) return;
         
         // Restore position
-        if (_playerHudOriginalStyles) {
-            playerHud.style.top = _playerHudOriginalStyles.top;
-            _playerHudOriginalStyles = null;
+        if (_restore.playerHud) {
+            playerHud.style.top = _restore.playerHud.top;
+            _restore.playerHud = null;
         }
     }
     
@@ -1392,8 +1336,8 @@
         if (!wrap) return;
         
         // Store original styles for cleanup (only once)
-        if (!_highway3dOverlayOriginalStyles) {
-            _highway3dOverlayOriginalStyles = {
+        if (!_restore.highway3dOverlay) {
+            _restore.highway3dOverlay = {
                 top: wrap.style.top || ''
             };
         }
@@ -1402,17 +1346,8 @@
         
         _highway3dAdjusted = true;
         
-        // Stop retry interval
-        if (_highway3dRetryInterval) {
-            clearInterval(_highway3dRetryInterval);
-            _highway3dRetryInterval = null;
-        }
-        
-        // Stop mutation observer
-        if (_highway3dObserver) {
-            _highway3dObserver.disconnect();
-            _highway3dObserver = null;
-        }
+        // Stop observer (successfully found and adjusted)
+        stopHighway3dObserver();
     }
     
     /**
@@ -1462,10 +1397,10 @@
         if (!wrap) return;
         
         // Restore wrapper position
-        if (_highway3dOverlayOriginalStyles) {
-            wrap.style.top = _highway3dOverlayOriginalStyles.top;
+        if (_restore.highway3dOverlay) {
+            wrap.style.top = _restore.highway3dOverlay.top;
             wrap.style.removeProperty('top');
-            _highway3dOverlayOriginalStyles = null;
+            _restore.highway3dOverlay = null;
         }
         
         _highway3dAdjusted = false;
@@ -1504,40 +1439,40 @@
         if (!e.touches || e.touches.length !== 1) return;
         
         const touch = e.touches[0];
-        _gestureStartX = touch.clientX;
-        _gestureStartY = touch.clientY;
-        _gestureStartTime = Date.now();
-        _gestureActive = true;
+        _highway.gestureStartX = touch.clientX;
+        _highway.gestureStartY = touch.clientY;
+        _highway.gestureStartTime = Date.now();
+        _highway.gestureActive = true;
     }
     
     /**
      * Handle touch end for gesture detection
      */
     function onGestureEnd(e) {
-        if (!_gestureActive) return;
+        if (!_highway.gestureActive) return;
         if (!e.changedTouches || e.changedTouches.length !== 1) return;
         
         const touch = e.changedTouches[0];
-        const deltaX = touch.clientX - _gestureStartX;
-        const deltaY = touch.clientY - _gestureStartY;
-        const deltaTime = Date.now() - _gestureStartTime;
+        const deltaX = touch.clientX - _highway.gestureStartX;
+        const deltaY = touch.clientY - _highway.gestureStartY;
+        const deltaTime = Date.now() - _highway.gestureStartTime;
         
-        _gestureActive = false;
+        _highway.gestureActive = false;
         
         const isQuickTap = deltaTime < CFG.tapMaxDurationMs && Math.abs(deltaX) < CFG.tapMaxMovementPx && Math.abs(deltaY) < CFG.tapMaxMovementPx;
         
         if (isQuickTap) {
             e.preventDefault();
             const now = Date.now();
-            const timeSinceLastTap = now - _lastTapTime;
+            const timeSinceLastTap = now - _highway.lastTapTime;
             
             if (timeSinceLastTap < CFG.doubleTapWindowMs && timeSinceLastTap > 0) {
                 // Second tap detected: cancel timeout, reverse first tap, execute double-tap
-                if (_pendingDoubleTapTimeout) {
-                    clearTimeout(_pendingDoubleTapTimeout);
-                    _pendingDoubleTapTimeout = null;
+                if (_timers.doubleTap) {
+                    clearTimeout(_timers.doubleTap);
+                    _timers.doubleTap = null;
                 }
-                _lastTapTime = 0;
+                _highway.lastTapTime = 0;
                 
                 // Clear any existing feedback from the first tap
                 const existing = document.getElementById('gesture-feedback');
@@ -1549,13 +1484,13 @@
                 handleDoubleTap();
             } else {
                 // First tap: execute immediately
-                _lastTapTime = now;
+                _highway.lastTapTime = now;
                 handleSingleTap();
                 
                 // Start double-tap window timer
-                _pendingDoubleTapTimeout = setTimeout(() => {
-                    _lastTapTime = 0;
-                    _pendingDoubleTapTimeout = null;
+                _timers.doubleTap = setTimeout(() => {
+                    _highway.lastTapTime = 0;
+                    _timers.doubleTap = null;
                 }, CFG.doubleTapWindowMs);
             }
             return;
@@ -1595,11 +1530,11 @@
         if (!loop) return;
         
         if (loop.loopA !== null && loop.loopB !== null) {
-            _loopMarkerState = 'b-set';
+            _highway.loopMarkerState = 'b-set';
         } else if (loop.loopA !== null) {
-            _loopMarkerState = 'a-set';
+            _highway.loopMarkerState = 'a-set';
         } else {
-            _loopMarkerState = 'ready';
+            _highway.loopMarkerState = 'ready';
         }
     }
     
@@ -1611,19 +1546,19 @@
         // Sync state before acting (in case loop was set externally)
         syncLoopMarkerState();
         
-        if (_loopMarkerState === 'ready') {
+        if (_highway.loopMarkerState === 'ready') {
             // Set loop start (A)
             if (typeof window.setLoopStart === 'function') {
                 window.setLoopStart();
-                _loopMarkerState = 'a-set';
+                _highway.loopMarkerState = 'a-set';
                 triggerHaptic(10);  // Short buzz for A
                 showGestureFeedback('Loop Start (A)');
             }
-        } else if (_loopMarkerState === 'a-set') {
+        } else if (_highway.loopMarkerState === 'a-set') {
             // Set loop end (B)
             if (typeof window.setLoopEnd === 'function') {
                 window.setLoopEnd();
-                _loopMarkerState = 'b-set';
+                _highway.loopMarkerState = 'b-set';
                 triggerHaptic(20);  // Medium buzz for B
                 showGestureFeedback('Loop End (B)');
             }
@@ -1631,7 +1566,7 @@
             // Clear loop and reset
             if (typeof window.clearLoop === 'function') {
                 window.clearLoop();
-                _loopMarkerState = 'ready';
+                _highway.loopMarkerState = 'ready';
                 triggerHaptic(30);  // Longer buzz for clear
                 showGestureFeedback('Loop Cleared');
             }
@@ -1738,22 +1673,22 @@
         if (!e.touches || e.touches.length !== 1) return;
         
         const touch = e.touches[0];
-        _controlsGestureStartX = touch.clientX;
-        _controlsGestureStartY = touch.clientY;
-        _controlsGestureStartTime = Date.now();
-        _controlsGestureActive = true;
+        _controls.gestureStartX = touch.clientX;
+        _controls.gestureStartY = touch.clientY;
+        _controls.gestureStartTime = Date.now();
+        _controls.gestureActive = true;
     }
     
     /**
      * Handle touch move on controls - prevent pull-to-refresh when swiping vertically
      */
     function onControlsGestureMove(e) {
-        if (!_controlsGestureActive) return;
+        if (!_controls.gestureActive) return;
         if (!e.touches || e.touches.length !== 1) return;
         
         const touch = e.touches[0];
-        const deltaY = _controlsGestureStartY - touch.clientY;
-        const deltaX = touch.clientX - _controlsGestureStartX;
+        const deltaY = _controls.gestureStartY - touch.clientY;
+        const deltaX = touch.clientX - _controls.gestureStartX;
         
         // If moving vertically more than horizontally, prevent default to stop pull-to-refresh
         // Use a low threshold (lower than the swipe detection) to catch it early
@@ -1766,22 +1701,22 @@
      * Handle touch end on controls
      */
     function onControlsGestureEnd(e) {
-        if (!_controlsGestureActive) return;
+        if (!_controls.gestureActive) return;
         if (!e.changedTouches || e.changedTouches.length !== 1) return;
         
         const touch = e.changedTouches[0];
-        const deltaY = _controlsGestureStartY - touch.clientY;  // Negative = down, positive = up
-        const deltaTime = Date.now() - _controlsGestureStartTime;
+        const deltaY = _controls.gestureStartY - touch.clientY;  // Negative = down, positive = up
+        const deltaTime = Date.now() - _controls.gestureStartTime;
         
-        _controlsGestureActive = false;
+        _controls.gestureActive = false;
         
         const isSwipe = Math.abs(deltaY) > CFG.swipeVerticalThreshold && deltaTime < CFG.swipeMaxDurationMs;
         
         if (!isSwipe) return;
         
-        if (deltaY > 0 && !_toolsExpanded) {
+        if (deltaY > 0 && !_ui.expanded) {
             toggleAdvancedControls();
-        } else if (deltaY < 0 && _toolsExpanded) {
+        } else if (deltaY < 0 && _ui.expanded) {
             toggleAdvancedControls();
         }
         
@@ -1791,6 +1726,100 @@
     // ═══════════════════════════════════════════════════════════════
     // Lifecycle
     // ═══════════════════════════════════════════════════════════════
+    
+    /**
+     * Remove Mobile Note Highway enhancements
+     */
+    function cleanup() {
+        // Cancel all pending timeouts
+        _timers.pending.forEach(clearTimeout);
+        _timers.pending = [];
+        
+        if (_timers.doubleTap) {
+            clearTimeout(_timers.doubleTap);
+            _timers.doubleTap = null;
+        }
+        
+        // Stop observing
+        stopControlsObserver();
+        
+        // Remove swipe indicator
+        if (_ui.swipeIndicator && _ui.swipeIndicator.parentElement) {
+            _ui.swipeIndicator.remove();
+            _ui.swipeIndicator = null;
+        }
+        
+        // Remove phantom end-spacer
+        const endSpacer = document.getElementById(HELPER_IDS.END_SPACER);
+        if (endSpacer) endSpacer.remove();
+        
+        // Get controls element
+        const controls = document.getElementById('player-controls');
+
+        // Restore close button to original state and clear positioning
+        if (controls) {
+            const backBtn = controls.querySelector('#mobile-back-btn') || Array.from(controls.querySelectorAll('button')).find(btn => {
+                const onclick = btn.getAttribute('onclick');
+                return onclick && onclick.includes("showScreen('home')");
+            });
+            if (backBtn) {
+                restoreCloseButton(backBtn);
+                backBtn.style.order = '';
+                backBtn.style.marginLeft = '';
+                backBtn.style.marginRight = '';
+            }
+        }
+
+        // Restore all hidden controls
+        document.querySelectorAll('.mobile-hide-advanced').forEach(el => {
+            el.classList.remove('mobile-hide-advanced');
+            el.style.display = '';
+        });
+        
+        // Unwrap speed slider/label if wrapped
+        const speedSlider = document.getElementById('speed-slider');
+        const speedLabel = document.getElementById('speed-label');
+        if (speedSlider && speedLabel && speedSlider.parentElement && speedSlider.parentElement !== controls) {
+            const wrapper = speedSlider.parentElement;
+            if (controls && wrapper.parentElement === controls) {
+                // Move elements back to controls
+                controls.insertBefore(speedSlider, wrapper);
+                controls.insertBefore(speedLabel, wrapper);
+                // Remove wrapper
+                wrapper.remove();
+                // Restore original styles
+                speedLabel.style.fontSize = '';
+                speedLabel.style.lineHeight = '';
+                speedLabel.style.marginBottom = '';
+                speedLabel.style.paddingTop = '';
+                speedLabel.style.paddingBottom = '';
+                speedLabel.style.textAlign = '';
+                speedLabel.style.width = '';
+                speedSlider.style.minHeight = '';
+                speedSlider.style.height = '';
+            }
+        }
+        
+        // Reset touch target sizes
+        if (controls) {
+            Array.from(controls.querySelectorAll('button')).forEach(btn => {
+                btn.style.minHeight = '';
+                btn.style.minWidth = '';
+                btn.style.padding = '';
+            });
+            
+            // Restore seek button labels
+            Array.from(controls.querySelectorAll('.seek-label')).forEach(label => {
+                label.style.display = '';
+            });
+            
+            Array.from(controls.querySelectorAll('input[type="range"]')).forEach(slider => {
+                slider.style.minHeight = '';
+            });
+        }
+        
+        _ui.expanded = false;
+    }
     
     /**
      * Initialize Mobile Note Highway plugin
@@ -1837,8 +1866,8 @@
         if (origPlaySong) {
             window.playSong = async function(filename, arrangement) {
                 // Cancel any pending enhancements from previous song
-                _pendingTimeouts.forEach(clearTimeout);
-                _pendingTimeouts = [];
+                _timers.pending.forEach(clearTimeout);
+                _timers.pending = [];
                 
                 await origPlaySong(filename, arrangement);
                 
@@ -1858,7 +1887,7 @@
         if (typeof origSetLoopStart === 'function') {
             window.setLoopStart = function() {
                 origSetLoopStart();
-                _loopMarkerState = 'a-set';
+                _highway.loopMarkerState = 'a-set';
             };
         }
         
@@ -1866,7 +1895,7 @@
         if (typeof origSetLoopEnd === 'function') {
             window.setLoopEnd = function() {
                 origSetLoopEnd();
-                _loopMarkerState = 'b-set';
+                _highway.loopMarkerState = 'b-set';
             };
         }
         
@@ -1874,7 +1903,7 @@
         if (typeof origClearLoop === 'function') {
             window.clearLoop = function() {
                 origClearLoop();
-                _loopMarkerState = 'ready';
+                _highway.loopMarkerState = 'ready';
             };
         }
         
