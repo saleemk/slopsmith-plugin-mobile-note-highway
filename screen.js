@@ -545,6 +545,7 @@
      */
     function applyControlOrder() {
         const arrSelect = document.getElementById('arr-select');
+        const arrDefaultPin = document.getElementById('arr-default-pin');
         const masteryWrapper = document.getElementById(WRAPPER_IDS.MASTERY);
         const speedWrapper = document.getElementById(WRAPPER_IDS.SPEED);
         const avWrapper = document.getElementById(WRAPPER_IDS.AV);
@@ -554,6 +555,10 @@
             arrSelect.style.marginLeft = '12px';
             arrSelect.style.width = CFG.selectWidth + 'px';
             arrSelect.style.marginRight = (!IS_TABLET && _ui.expanded) ? 'auto' : '0';
+        }
+        
+        if (arrDefaultPin) {
+            arrDefaultPin.style.order = '101';  // After A/V offset (order 100)
         }
         
         if (masteryWrapper) {
