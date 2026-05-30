@@ -1,6 +1,6 @@
 # Mobile Note Highway
 
-**v1.1.0** - Gesture refinement with vertical scrubbing, live preview, and audio feedback.
+[![GitHub release](https://img.shields.io/github/v/release/saleemk/slopsmith-plugin-mobile-note-highway)](https://github.com/saleemk/slopsmith-plugin-mobile-note-highway/releases)
 
 A touch-optimized note highway player plugin for [Slopsmith](https://github.com/slopsmith/slopsmith) that transforms the player experience on phones and tablets. Collapsible controls, intuitive gestures with live audio feedback, and device-adaptive layouts let you focus on playing.
 
@@ -27,6 +27,8 @@ A touch-optimized note highway player plugin for [Slopsmith](https://github.com/
 - **Drag-to-scrub section map** - Touch and drag the section map for instant navigation with live highway preview
 
 ## Installation
+
+**Current version: v1.1.1** - iPad detection hotfix (iPadOS 13+ now correctly detected as tablet). See [Releases](https://github.com/saleemk/slopsmith-plugin-mobile-note-highway/releases) for full changelog.
 
 ### Manual Installation
 
