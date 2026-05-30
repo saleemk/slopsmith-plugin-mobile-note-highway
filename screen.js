@@ -27,45 +27,29 @@
         const ua = navigator.userAgent.toLowerCase();
         const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
         
-    console.log('[MNH detectDevice] UA:', navigator.userAgent);
-    console.log('[MNH detectDevice] hasCoarsePointer:', hasCoarsePointer);
-    console.log('[MNH detectDevice] ontouchstart:', 'ontouchstart' in window);
-    console.log('[MNH detectDevice] maxTouchPoints:', navigator.maxTouchPoints);
-    console.log('[MNH detectDevice] innerWidth:', window.innerWidth);
-    
-    // Desktop OS detection - Windows/Mac/Linux desktops (but not mobile variants)
-    // Check this FIRST to prevent desktop browsers from being misdetected as mobile
-    const isDesktopUA = /windows nt|macintosh|linux x86_64/.test(ua) && 
-                       !/mobile|android|iphone|ipad|ipod|windows phone/.test(ua);
-    
-    console.log('[MNH detectDevice] isDesktopUA:', isDesktopUA);
-    
-    // If desktop UA but hasCoarsePointer is true, it's an iPad masquerading as Mac
-    // (Modern iPads report UA as "Macintosh" but hasCoarsePointer correctly shows true)
-    if (isDesktopUA && hasCoarsePointer) {
-        const result = window.innerWidth >= 600 ? 'tablet' : 'phone';
-        console.log('[MNH detectDevice] Desktop UA + coarsePointer = iPad, RESULT:', result);
-        return result;
+        // Desktop OS detection - Windows/Mac/Linux desktops (but not mobile variants)
+        // Check this FIRST to prevent desktop browsers from being misdetected as mobile
+        const isDesktopUA = /windows nt|macintosh|linux x86_64/.test(ua) && 
+                           !/mobile|android|iphone|ipad|ipod|windows phone/.test(ua);
+        
+        // If desktop UA but hasCoarsePointer is true, it's an iPad masquerading as Mac
+        // (Modern iPads report UA as "Macintosh" but hasCoarsePointer correctly shows true)
+        if (isDesktopUA && hasCoarsePointer) {
+            return window.innerWidth >= 600 ? 'tablet' : 'phone';
+        }
+        
+        // If desktop UA without coarse pointer, it's a real desktop
+        if (isDesktopUA) {
+            return 'desktop';
+        }
+        
+        // Not a desktop UA - check touch capabilities
+        // Require maxTouchPoints > 1 (not > 0) to avoid false positives from
+        // desktop browsers with dev tools emulation support
+        const hasTouch = hasCoarsePointer || ('ontouchstart' in window) || (navigator.maxTouchPoints > 1);
+        
+        return hasTouch ? (window.innerWidth >= 600 ? 'tablet' : 'phone') : 'desktop';
     }
-    
-    // If desktop UA without coarse pointer, it's a real desktop
-    if (isDesktopUA) {
-        console.log('[MNH detectDevice] Desktop UA without coarsePointer, RESULT: desktop');
-        return 'desktop';
-    }
-    
-    // Not a desktop UA - check touch capabilities
-    // Require maxTouchPoints > 1 (not > 0) to avoid false positives from
-    // desktop browsers with dev tools emulation support
-    const hasTouch = hasCoarsePointer || ('ontouchstart' in window) || (navigator.maxTouchPoints > 1);
-    
-    console.log('[MNH detectDevice] hasTouch:', hasTouch);
-    
-    const result = hasTouch ? (window.innerWidth >= 600 ? 'tablet' : 'phone') : 'desktop';
-    console.log('[MNH detectDevice] RESULT:', result);
-    
-    return result;
-}
 
     /**
      * Per-device styling and behavior config.
@@ -230,6 +214,8 @@
         modulatedGain: null,       // GainNode (tape_flutter AM output)
         active: false,             // Is whoosh playing?
         type: null,                // Current sound type
+        theodinForward: null,      // AudioBuffer (theodin forward whoosh)
+        theodinReverse: null,      // AudioBuffer (theodin reverse whoosh)
     };
     
     // Controls gesture state (swipe up/down to expand/collapse)
@@ -922,24 +908,19 @@
             }
         }
         
-        // Hide all non-essential controls (after styling, so display: 'none' wins)
-        // Also set order for non-priority controls
-        let hiddenCount = 0;
+        // Hide all non-essential controls and set order for non-priority controls
         Array.from(controls.children).forEach(el => {
-            // Set order for non-priority controls (back/play/arr/seekBy are priority, mobile-* excluded)
             const isPriority = el.id === 'arr-select' || 
                               el.id === 'mobile-back-btn' ||
                               el.id === 'btn-play' ||
                               (el.tagName === 'BUTTON' && el.getAttribute('onclick')?.includes('seekBy('));
             
             if (!isPriority && !el.id?.startsWith('mobile-')) {
-                // Non-priority controls: order 100
                 el.style.order = CONTROL_ORDER.REST;
             }
             
             if (!isEssentialControl(el)) {
                 hideControl(el);
-                hiddenCount++;
             }
         });
         
@@ -968,7 +949,6 @@
                 z-index: 100;
             `;
             
-            // Inner element for bounce animation
             const chevronInner = document.createElement('div');
             chevronInner.textContent = '⌄';
             chevronInner.style.cssText = `
@@ -1073,12 +1053,9 @@
         const controls = document.getElementById('player-controls');
         if (!controls) return;
         
-        let fixedCount = 0;
         Array.from(controls.children).forEach(el => {
-            // Skip our injected helpers
             if (isHelperElement(el)) return;
             
-            // Set order for non-priority controls (back/play/arr/seekBy are priority, mobile-* excluded)
             const isPriority = el.id === 'arr-select' || 
                               el.id === 'mobile-back-btn' ||
                               el.id === 'btn-play' ||
@@ -1089,24 +1066,16 @@
             }
             
             if (isEssentialControl(el)) {
-                // Essential controls - ensure visible and no hide class
                 if (el.classList.contains('mobile-hide-advanced')) {
                     el.classList.remove('mobile-hide-advanced');
                     el.classList.remove('mobile-hidden');
-                    fixedCount++;
                 }
             } else {
-                // Non-essential controls - mark with hide class and apply visibility based on expanded state
-                const wasFixed = !el.classList.contains('mobile-hide-advanced');
                 el.classList.add('mobile-hide-advanced');
-                // Use CSS class instead of inline style
                 if (_ui.expanded) {
                     el.classList.remove('mobile-hidden');
                 } else {
                     el.classList.add('mobile-hidden');
-                }
-                if (wasFixed) {
-                    fixedCount++;
                 }
             }
         });
@@ -1220,72 +1189,51 @@
             }
         }
 
-        // Get controls element for subsequent operations
         const controls = document.getElementById('player-controls');
+        if (!controls) return;
 
-        // Re-apply explicit order values
         applyControlOrder();
-
-        // Close button: keep transformed into a Back icon at far left
-        if (controls) {
-            const closeButton = Array.from(controls.querySelectorAll('button')).find(btn => {
-                const onclick = btn.getAttribute('onclick');
-                return onclick && onclick.includes("showScreen('home')");
-            });
-            if (closeButton) {
-                transformCloseButton(closeButton);
-                closeButton.style.order = CONTROL_ORDER.BACK;
-                closeButton.style.marginLeft = '0';
-                closeButton.style.marginRight = '12px';
-            }
-        }
         
         // Re-scan ALL controls to catch any late-injected buttons
-        if (controls) {
-            Array.from(controls.children).forEach(el => {
-                // Skip our injected helpers
-                if (isHelperElement(el)) return;
-                
-                // Set order for non-priority controls (back/play/arr/seekBy are priority, mobile-* excluded)
-                const isPriority = el.id === 'arr-select' || 
-                                  el.id === 'mobile-back-btn' ||
-                                  el.id === 'btn-play' ||
-                                  (el.tagName === 'BUTTON' && el.getAttribute('onclick')?.includes('seekBy('));
-                
-                if (!isPriority && !el.id?.startsWith('mobile-') && !el.style.order) {
-                    el.style.order = CONTROL_ORDER.REST;
-                }
-                
-                const isEssential = isEssentialControl(el);
-                
-                if (isEssential) {
-                    // Essential controls - always visible, ensure no hide class
-                    el.classList.remove('mobile-hide-advanced');
-                } else {
-                    // Non-essential - mark for hiding and set display based on expanded state
-                    if (!el.classList.contains('mobile-hide-advanced')) {
-                        el.classList.add('mobile-hide-advanced');
-                    }
-                    if (_ui.expanded) {
-                        el.classList.remove('mobile-hidden');
-                    } else {
-                        el.classList.add('mobile-hidden');
-                    }
-                }
-            });
+        Array.from(controls.children).forEach(el => {
+            if (isHelperElement(el)) return;
             
-            // Ensure close button stays transformed as Back icon at far left
-            const closeButton = Array.from(controls.querySelectorAll('button')).find(btn => {
-                const onclick = btn.getAttribute('onclick');
-                return onclick && onclick.includes("showScreen('home')");
-            });
-            if (closeButton) {
-                transformCloseButton(closeButton);
-                closeButton.style.order = CONTROL_ORDER.BACK;
-                closeButton.classList.remove('ml-auto');
-                closeButton.style.marginLeft = '0';
-                closeButton.style.marginRight = '12px';
+            const isPriority = el.id === 'arr-select' || 
+                              el.id === 'mobile-back-btn' ||
+                              el.id === 'btn-play' ||
+                              (el.tagName === 'BUTTON' && el.getAttribute('onclick')?.includes('seekBy('));
+            
+            if (!isPriority && !el.id?.startsWith('mobile-') && !el.style.order) {
+                el.style.order = CONTROL_ORDER.REST;
             }
+            
+            const isEssential = isEssentialControl(el);
+            
+            if (isEssential) {
+                el.classList.remove('mobile-hide-advanced');
+            } else {
+                if (!el.classList.contains('mobile-hide-advanced')) {
+                    el.classList.add('mobile-hide-advanced');
+                }
+                if (_ui.expanded) {
+                    el.classList.remove('mobile-hidden');
+                } else {
+                    el.classList.add('mobile-hidden');
+                }
+            }
+        });
+        
+        // Transform close button
+        const closeButton = Array.from(controls.querySelectorAll('button')).find(btn => {
+            const onclick = btn.getAttribute('onclick');
+            return onclick && onclick.includes("showScreen('home')");
+        });
+        if (closeButton) {
+            transformCloseButton(closeButton);
+            closeButton.style.order = CONTROL_ORDER.BACK;
+            closeButton.classList.remove('ml-auto');
+            closeButton.style.marginLeft = '0';
+            closeButton.style.marginRight = '12px';
         }
     }
     
@@ -1620,8 +1568,47 @@
         
         try {
             _whoosh.context = new (window.AudioContext || window.webkitAudioContext)();
+            // Load theodin audio buffers asynchronously
+            loadTheoddinBuffers();
         } catch (err) {
             console.error('[mobile_note_highway] ❌ Whoosh init failed:', err);
+        }
+    }
+    
+    /**
+     * Load theodin audio buffers (forward and reverse whoosh sounds)
+     */
+    async function loadTheoddinBuffers() {
+        if (_whoosh.theodinForward && _whoosh.theodinReverse) {
+            return; // Already loaded
+        }
+        
+        if (!_whoosh.context) {
+            return; // Silently skip if no audio context
+        }
+        
+        try {
+            // Check if files exist first (HEAD request to avoid 404 console spam)
+            const forwardHead = await fetch('static/whoosh_sounds/whoosh_forward.ogg', { method: 'HEAD' });
+            const reverseHead = await fetch('static/whoosh_sounds/whoosh_reverse.ogg', { method: 'HEAD' });
+            
+            if (!forwardHead.ok || !reverseHead.ok) {
+                return; // Silently fall back to tape_flutter (no 404s)
+            }
+            
+            // Files exist, now fetch them
+            const forwardResponse = await fetch('static/whoosh_sounds/whoosh_forward.ogg');
+            const reverseResponse = await fetch('static/whoosh_sounds/whoosh_reverse.ogg');
+            
+            const forwardArrayBuffer = await forwardResponse.arrayBuffer();
+            const reverseArrayBuffer = await reverseResponse.arrayBuffer();
+            
+            _whoosh.theodinForward = await _whoosh.context.decodeAudioData(forwardArrayBuffer);
+            _whoosh.theodinReverse = await _whoosh.context.decodeAudioData(reverseArrayBuffer);
+            
+            console.log('[mobile_note_highway] ✅ Theodin buffers loaded');
+        } catch (err) {
+            // Silently fall back to tape_flutter
         }
     }
     
@@ -1732,6 +1719,44 @@
                     
                     _whoosh.lfo.start();
                     break;
+                    
+                case 'theodin':
+                    // Audio-based whoosh (forward/reverse buffers)
+                    if (!_whoosh.theodinForward || !_whoosh.theodinReverse) {
+                        // Buffers not loaded yet, fall back to tape_flutter
+                        _whoosh.source = _whoosh.context.createOscillator();
+                        _whoosh.source.type = 'sine';
+                        _whoosh.source.frequency.value = isForward ? 180 : 250;
+                        
+                        _whoosh.lfo = _whoosh.context.createOscillator();
+                        _whoosh.lfo.type = 'sine';
+                        _whoosh.lfo.frequency.value = 6;
+                        
+                        _whoosh.lfoGain = _whoosh.context.createGain();
+                        _whoosh.lfoGain.gain.value = 0.3;
+                        
+                        _whoosh.modulatedGain = _whoosh.context.createGain();
+                        _whoosh.modulatedGain.gain.value = 0.7;
+                        
+                        _whoosh.lfo.connect(_whoosh.lfoGain);
+                        _whoosh.lfoGain.connect(_whoosh.modulatedGain.gain);
+                        _whoosh.source.connect(_whoosh.modulatedGain);
+                        _whoosh.modulatedGain.connect(_whoosh.gain);
+                        
+                        _whoosh.lfo.start();
+                    } else {
+                        // Use loaded audio buffers
+                        _whoosh.source = _whoosh.context.createBufferSource();
+                        _whoosh.source.buffer = isForward ? _whoosh.theodinForward : _whoosh.theodinReverse;
+                        _whoosh.source.loop = true;
+                        
+                        // Slight pitch variation based on velocity
+                        const absVel = Math.abs(velocity);
+                        _whoosh.source.playbackRate.value = 0.9 + (absVel / 5000) * 0.2; // 0.9x - 1.1x
+                        
+                        _whoosh.source.connect(_whoosh.gain);
+                    }
+                    break;
             }
             
             _whoosh.gain.connect(_whoosh.context.destination);
@@ -1782,6 +1807,40 @@
                         _whoosh.filter.frequency.setTargetAtTime(noiseFilterFreq, now, 0.05);
                     }
                     break;
+                    
+                case 'theodin':
+                    // Check if buffers are loaded
+                    if (!_whoosh.theodinForward || !_whoosh.theodinReverse) {
+                        // Buffers not loaded - fall through to tape_flutter
+                        // (no break, continues to next case)
+                    } else {
+                        // Buffers loaded - check if direction changed and switch buffer if needed
+                        const currentBuffer = _whoosh.source.buffer;
+                        const targetBuffer = isForward ? _whoosh.theodinForward : _whoosh.theodinReverse;
+                        
+                        if (currentBuffer !== targetBuffer && targetBuffer) {
+                            // Direction changed - need to restart with new buffer
+                            try {
+                                _whoosh.source.stop();
+                            } catch (e) { /* already stopped */ }
+                            _whoosh.source.disconnect();
+                            
+                            // Create new source with correct buffer
+                            _whoosh.source = _whoosh.context.createBufferSource();
+                            _whoosh.source.buffer = targetBuffer;
+                            _whoosh.source.loop = true;
+                            _whoosh.source.connect(_whoosh.gain);
+                            _whoosh.source.start();
+                        }
+                        
+                        // Adjust playback rate based on velocity
+                        if (_whoosh.source.playbackRate) {
+                            const playbackRate = 0.9 + (absVel / 5000) * 0.2; // 0.9x - 1.1x
+                            _whoosh.source.playbackRate.setTargetAtTime(playbackRate, now, 0.05);
+                        }
+                        break; // Only break if we handled it
+                    }
+                    // Fall through to tape_flutter if no break above
                     
                 case 'tape_flutter':
                     // Tape warble: adjust base frequency and LFO rate with speed
@@ -1883,7 +1942,6 @@
                 _whoosh.modulatedGain = null;
             }
         } catch (err) { /* ignore */ }
-        
     }
     
     // ═══════════════════════════════════════════════════════════════
@@ -2425,6 +2483,7 @@
                 scheduleEnhancement(startHighway3dObserver, 500);
                 scheduleEnhancement(syncLoopMarkerState, 100);
             } else {
+                stopWhoosh();
                 cleanup();
                 restoreSectionMap();
                 restorePlayerHud();
@@ -2555,10 +2614,8 @@
     window.mnhSetCollapsedControl = function(device, value) {
         try {
             const key = 'mobile_note_highway.collapsed.' + device;
-            // For tablet, value is an array; for phone, it's a string
             const storedValue = Array.isArray(value) ? value.slice(0, 3).join(',') : value;
             localStorage.setItem(key, storedValue);
-            // TODO: Implement actual show/hide logic
         } catch (err) {
             console.error('[mobile_note_highway] Failed to save collapsed control setting:', err);
         }
