@@ -1680,23 +1680,7 @@
                     _whoosh.filter.connect(_whoosh.gain);
                     break;
                     
-                case 'rumble':
-                    // Deep bass oscillator
-                    _whoosh.source = _whoosh.context.createOscillator();
-                    _whoosh.source.type = 'sine';
-                    _whoosh.source.frequency.value = 40; // Very low
-                    
-                    // Lowpass filter
-                    _whoosh.filter = _whoosh.context.createBiquadFilter();
-                    _whoosh.filter.type = 'lowpass';
-                    _whoosh.filter.frequency.value = 200;
-                    
-                    _whoosh.source.connect(_whoosh.filter);
-                    _whoosh.filter.connect(_whoosh.gain);
-                    break;
-                    
                 case 'whitenoise':
-                case 'crackle':
                     // Noise-based sounds (buffer source)
                     if (!_whoosh.noiseBuffer) {
                         // Generate noise buffer (2 seconds)
@@ -1714,34 +1698,9 @@
                     
                     // Filter
                     _whoosh.filter = _whoosh.context.createBiquadFilter();
-                    _whoosh.filter.type = getWhooshType() === 'crackle' ? 'highpass' : 'bandpass';
-                    _whoosh.filter.frequency.value = getWhooshType() === 'crackle' ? 2000 : 800;
-                    _whoosh.filter.Q.value = getWhooshType() === 'crackle' ? 0.5 : 3;
-                    
-                    _whoosh.source.connect(_whoosh.filter);
-                    _whoosh.filter.connect(_whoosh.gain);
-                    break;
-                    
-                case 'clicks':
-                    // Short pulse oscillator
-                    _whoosh.source = _whoosh.context.createOscillator();
-                    _whoosh.source.type = 'square';
-                    _whoosh.source.frequency.value = 10; // 10 clicks per second base
-                    
-                    _whoosh.source.connect(_whoosh.gain);
-                    break;
-                    
-                case 'vinyl_scratch':
-                    // DJ vinyl scratch: triangle wave + resonant highpass
-                    _whoosh.source = _whoosh.context.createOscillator();
-                    _whoosh.source.type = 'triangle'; // Bright but not harsh
-                    _whoosh.source.frequency.value = isForward ? 200 : 300;
-                    
-                    // Resonant highpass for that vinyl character
-                    _whoosh.filter = _whoosh.context.createBiquadFilter();
-                    _whoosh.filter.type = 'highpass';
+                    _whoosh.filter.type = 'bandpass';
                     _whoosh.filter.frequency.value = 800;
-                    _whoosh.filter.Q.value = 8; // High resonance
+                    _whoosh.filter.Q.value = 3;
                     
                     _whoosh.source.connect(_whoosh.filter);
                     _whoosh.filter.connect(_whoosh.gain);
@@ -1772,22 +1731,6 @@
                     _whoosh.modulatedGain.connect(_whoosh.gain);
                     
                     _whoosh.lfo.start();
-                    break;
-                    
-                case 'mechanical':
-                    // Ratcheting gear: square wave with moderate sweep
-                    _whoosh.source = _whoosh.context.createOscillator();
-                    _whoosh.source.type = 'square';
-                    _whoosh.source.frequency.value = isForward ? 100 : 140;
-                    
-                    // Lowpass to soften the harsh square
-                    _whoosh.filter = _whoosh.context.createBiquadFilter();
-                    _whoosh.filter.type = 'lowpass';
-                    _whoosh.filter.frequency.value = 1200;
-                    _whoosh.filter.Q.value = 2;
-                    
-                    _whoosh.source.connect(_whoosh.filter);
-                    _whoosh.filter.connect(_whoosh.gain);
                     break;
             }
             
@@ -1832,40 +1775,11 @@
                     }
                     break;
                     
-                case 'rumble':
-                    // Very subtle frequency change (stay in bass range)
-                    const rumbleFreq = 40 + (absVel / 100);
-                    _whoosh.source.frequency.setTargetAtTime(rumbleFreq, now, 0.1);
-                    break;
-                    
                 case 'whitenoise':
-                case 'crackle':
                     // Only adjust filter sweep for noise
                     if (_whoosh.filter) {
-                        const noiseFilterFreq = _whoosh.type === 'crackle' 
-                            ? 2000 + absVel * 2
-                            : 600 + absVel * 1.2;
+                        const noiseFilterFreq = 600 + absVel * 1.2;
                         _whoosh.filter.frequency.setTargetAtTime(noiseFilterFreq, now, 0.05);
-                    }
-                    break;
-                    
-                case 'clicks':
-                    // Change click rate with velocity
-                    const clickRate = 5 + (absVel / 50);
-                    _whoosh.source.frequency.setTargetAtTime(clickRate, now, 0.05);
-                    break;
-                    
-                case 'vinyl_scratch':
-                    // DJ scratch: aggressive frequency + filter sweep
-                    const scratchMin = isForward ? 200 : 300;
-                    const scratchMax = isForward ? 1000 : 1400;
-                    const scratchFreq = scratchMin + (absVel / 400) * (scratchMax - scratchMin);
-                    _whoosh.source.frequency.setTargetAtTime(scratchFreq, now, 0.02); // Fast response
-                    
-                    // Sweep highpass filter for more aggression
-                    if (_whoosh.filter) {
-                        const hpFreq = 800 + absVel * 2; // Aggressive sweep
-                        _whoosh.filter.frequency.setTargetAtTime(Math.min(hpFreq, 4000), now, 0.02);
                     }
                     break;
                     
@@ -1880,20 +1794,6 @@
                     if (_whoosh.lfo) {
                         const lfoRate = 6 + (absVel / 200); // 6Hz → faster
                         _whoosh.lfo.frequency.setTargetAtTime(Math.min(lfoRate, 15), now, 0.1);
-                    }
-                    break;
-                    
-                case 'mechanical':
-                    // Ratchet gear: moderate frequency sweep
-                    const mechMin = isForward ? 100 : 140;
-                    const mechMax = isForward ? 350 : 450;
-                    const mechFreq = mechMin + (absVel / 500) * (mechMax - mechMin);
-                    _whoosh.source.frequency.setTargetAtTime(mechFreq, now, 0.06);
-                    
-                    // Open up filter as speed increases
-                    if (_whoosh.filter) {
-                        const mechFilterFreq = 1200 + absVel * 1.5;
-                        _whoosh.filter.frequency.setTargetAtTime(Math.min(mechFilterFreq, 3000), now, 0.06);
                     }
                     break;
             }
