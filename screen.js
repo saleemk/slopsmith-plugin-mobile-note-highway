@@ -27,20 +27,46 @@
         const ua = navigator.userAgent.toLowerCase();
         const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
         
-        // Desktop OS detection - Windows/Mac/Linux desktops (but not mobile variants)
-        const isDesktopUA = /windows nt|macintosh|linux x86_64/.test(ua) && 
-                           !/mobile|android|iphone|ipad|ipod|windows phone/.test(ua);
-        
-        // Require maxTouchPoints > 1 (not > 0) to avoid false positives from
-        // desktop browsers with dev tools emulation support
-        const hasTouch = hasCoarsePointer || ('ontouchstart' in window) || (navigator.maxTouchPoints > 1);
-        
-        if (!hasTouch || isDesktopUA) return 'desktop';
-        return window.innerWidth >= 600 ? 'tablet' : 'phone';
+    console.log('[MNH detectDevice] UA:', navigator.userAgent);
+    console.log('[MNH detectDevice] hasCoarsePointer:', hasCoarsePointer);
+    console.log('[MNH detectDevice] ontouchstart:', 'ontouchstart' in window);
+    console.log('[MNH detectDevice] maxTouchPoints:', navigator.maxTouchPoints);
+    console.log('[MNH detectDevice] innerWidth:', window.innerWidth);
+    
+    // Desktop OS detection - Windows/Mac/Linux desktops (but not mobile variants)
+    // Check this FIRST to prevent desktop browsers from being misdetected as mobile
+    const isDesktopUA = /windows nt|macintosh|linux x86_64/.test(ua) && 
+                       !/mobile|android|iphone|ipad|ipod|windows phone/.test(ua);
+    
+    console.log('[MNH detectDevice] isDesktopUA:', isDesktopUA);
+    
+    // If desktop UA but hasCoarsePointer is true, it's an iPad masquerading as Mac
+    // (Modern iPads report UA as "Macintosh" but hasCoarsePointer correctly shows true)
+    if (isDesktopUA && hasCoarsePointer) {
+        const result = window.innerWidth >= 600 ? 'tablet' : 'phone';
+        console.log('[MNH detectDevice] Desktop UA + coarsePointer = iPad, RESULT:', result);
+        return result;
     }
     
-    let DEVICE = detectDevice();
+    // If desktop UA without coarse pointer, it's a real desktop
+    if (isDesktopUA) {
+        console.log('[MNH detectDevice] Desktop UA without coarsePointer, RESULT: desktop');
+        return 'desktop';
+    }
     
+    // Not a desktop UA - check touch capabilities
+    // Require maxTouchPoints > 1 (not > 0) to avoid false positives from
+    // desktop browsers with dev tools emulation support
+    const hasTouch = hasCoarsePointer || ('ontouchstart' in window) || (navigator.maxTouchPoints > 1);
+    
+    console.log('[MNH detectDevice] hasTouch:', hasTouch);
+    
+    const result = hasTouch ? (window.innerWidth >= 600 ? 'tablet' : 'phone') : 'desktop';
+    console.log('[MNH detectDevice] RESULT:', result);
+    
+    return result;
+}
+
     /**
      * Per-device styling and behavior config.
      * Phone values exactly match the pre-refactor hardcoded numbers so phone
@@ -113,6 +139,7 @@
         },
     };
     
+    const DEVICE = detectDevice();
     let CFG = CONFIG[DEVICE] || CONFIG.phone;
     let IS_TABLET = DEVICE === 'tablet';
     
