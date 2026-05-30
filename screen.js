@@ -214,8 +214,8 @@
         modulatedGain: null,       // GainNode (tape_flutter AM output)
         active: false,             // Is whoosh playing?
         type: null,                // Current sound type
-        theodinForward: null,      // AudioBuffer (theodin forward whoosh)
-        theodinReverse: null,      // AudioBuffer (theodin reverse whoosh)
+        theodinForward: null,      // AudioBuffer (forward sample)
+        theodinReverse: null,      // AudioBuffer (reverse sample)
     };
     
     // Controls gesture state (swipe up/down to expand/collapse)
@@ -1568,35 +1568,31 @@
         
         try {
             _whoosh.context = new (window.AudioContext || window.webkitAudioContext)();
-            // Load theodin audio buffers asynchronously
-            loadTheoddinBuffers();
         } catch (err) {
             console.error('[mobile_note_highway] ❌ Whoosh init failed:', err);
         }
     }
     
     /**
-     * Load theodin audio buffers (forward and reverse whoosh sounds)
+     * Load optional audio buffers for sample-based whoosh sounds
      */
     async function loadTheoddinBuffers() {
         if (_whoosh.theodinForward && _whoosh.theodinReverse) {
-            return; // Already loaded
+            return;
         }
         
         if (!_whoosh.context) {
-            return; // Silently skip if no audio context
+            return;
         }
         
         try {
-            // Check if files exist first (HEAD request to avoid 404 console spam)
             const forwardHead = await fetch('static/whoosh_sounds/whoosh_forward.ogg', { method: 'HEAD' });
             const reverseHead = await fetch('static/whoosh_sounds/whoosh_reverse.ogg', { method: 'HEAD' });
             
             if (!forwardHead.ok || !reverseHead.ok) {
-                return; // Silently fall back to tape_flutter (no 404s)
+                return;
             }
             
-            // Files exist, now fetch them
             const forwardResponse = await fetch('static/whoosh_sounds/whoosh_forward.ogg');
             const reverseResponse = await fetch('static/whoosh_sounds/whoosh_reverse.ogg');
             
@@ -1605,10 +1601,8 @@
             
             _whoosh.theodinForward = await _whoosh.context.decodeAudioData(forwardArrayBuffer);
             _whoosh.theodinReverse = await _whoosh.context.decodeAudioData(reverseArrayBuffer);
-            
-            console.log('[mobile_note_highway] ✅ Theodin buffers loaded');
         } catch (err) {
-            // Silently fall back to tape_flutter
+            // Silent fallback
         }
     }
     
@@ -1721,9 +1715,9 @@
                     break;
                     
                 case 'theodin':
-                    // Audio-based whoosh (forward/reverse buffers)
                     if (!_whoosh.theodinForward || !_whoosh.theodinReverse) {
-                        // Buffers not loaded yet, fall back to tape_flutter
+                        loadTheoddinBuffers();
+                        
                         _whoosh.source = _whoosh.context.createOscillator();
                         _whoosh.source.type = 'sine';
                         _whoosh.source.frequency.value = isForward ? 180 : 250;
@@ -1745,14 +1739,12 @@
                         
                         _whoosh.lfo.start();
                     } else {
-                        // Use loaded audio buffers
                         _whoosh.source = _whoosh.context.createBufferSource();
                         _whoosh.source.buffer = isForward ? _whoosh.theodinForward : _whoosh.theodinReverse;
                         _whoosh.source.loop = true;
                         
-                        // Slight pitch variation based on velocity
                         const absVel = Math.abs(velocity);
-                        _whoosh.source.playbackRate.value = 0.9 + (absVel / 5000) * 0.2; // 0.9x - 1.1x
+                        _whoosh.source.playbackRate.value = 0.9 + (absVel / 5000) * 0.2;
                         
                         _whoosh.source.connect(_whoosh.gain);
                     }
@@ -1809,23 +1801,18 @@
                     break;
                     
                 case 'theodin':
-                    // Check if buffers are loaded
                     if (!_whoosh.theodinForward || !_whoosh.theodinReverse) {
-                        // Buffers not loaded - fall through to tape_flutter
-                        // (no break, continues to next case)
+                        // Fall through
                     } else {
-                        // Buffers loaded - check if direction changed and switch buffer if needed
                         const currentBuffer = _whoosh.source.buffer;
                         const targetBuffer = isForward ? _whoosh.theodinForward : _whoosh.theodinReverse;
                         
                         if (currentBuffer !== targetBuffer && targetBuffer) {
-                            // Direction changed - need to restart with new buffer
                             try {
                                 _whoosh.source.stop();
                             } catch (e) { /* already stopped */ }
                             _whoosh.source.disconnect();
                             
-                            // Create new source with correct buffer
                             _whoosh.source = _whoosh.context.createBufferSource();
                             _whoosh.source.buffer = targetBuffer;
                             _whoosh.source.loop = true;
@@ -1833,14 +1820,12 @@
                             _whoosh.source.start();
                         }
                         
-                        // Adjust playback rate based on velocity
                         if (_whoosh.source.playbackRate) {
-                            const playbackRate = 0.9 + (absVel / 5000) * 0.2; // 0.9x - 1.1x
+                            const playbackRate = 0.9 + (absVel / 5000) * 0.2;
                             _whoosh.source.playbackRate.setTargetAtTime(playbackRate, now, 0.05);
                         }
-                        break; // Only break if we handled it
+                        break;
                     }
-                    // Fall through to tape_flutter if no break above
                     
                 case 'tape_flutter':
                     // Tape warble: adjust base frequency and LFO rate with speed
