@@ -1480,7 +1480,8 @@
     function adjustHighway3dOverlay() {
         if (_highway3dAdjusted) return;
         
-        const wrap = document.querySelector('.h3d-wrap');
+        // Scope to #player so plugins borrowing the highway_3d factory don't steal the match.
+        const wrap = document.querySelector('#player .h3d-wrap');
         if (!wrap) return;
         
         // Store original styles for cleanup (only once)
@@ -1541,7 +1542,7 @@
     function restoreHighway3dOverlay() {
         stopHighway3dObserver();
         
-        const wrap = document.querySelector('.h3d-wrap');
+        const wrap = document.querySelector('#player .h3d-wrap');
         if (!wrap) return;
         
         // Restore wrapper position
