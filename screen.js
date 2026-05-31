@@ -123,7 +123,7 @@
         },
     };
     
-    const DEVICE = detectDevice();
+    let DEVICE = detectDevice();
     let CFG = CONFIG[DEVICE] || CONFIG.phone;
     let IS_TABLET = DEVICE === 'tablet';
     
@@ -214,8 +214,8 @@
         modulatedGain: null,       // GainNode (tape_flutter AM output)
         active: false,             // Is whoosh playing?
         type: null,                // Current sound type
-        theodinForward: null,      // AudioBuffer (forward sample)
-        theodinReverse: null,      // AudioBuffer (reverse sample)
+        sampleForward: null,       // AudioBuffer (forward sample)
+        sampleReverse: null,       // AudioBuffer (reverse sample)
     };
     
     // Controls gesture state (swipe up/down to expand/collapse)
@@ -1577,8 +1577,8 @@
     /**
      * Load optional audio buffers for sample-based whoosh sounds
      */
-    async function loadTheoddinBuffers() {
-        if (_whoosh.theodinForward && _whoosh.theodinReverse) {
+    async function loadSampleBuffers() {
+        if (_whoosh.sampleForward && _whoosh.sampleReverse) {
             return;
         }
         
@@ -1600,8 +1600,8 @@
             const forwardArrayBuffer = await forwardResponse.arrayBuffer();
             const reverseArrayBuffer = await reverseResponse.arrayBuffer();
             
-            _whoosh.theodinForward = await _whoosh.context.decodeAudioData(forwardArrayBuffer);
-            _whoosh.theodinReverse = await _whoosh.context.decodeAudioData(reverseArrayBuffer);
+            _whoosh.sampleForward = await _whoosh.context.decodeAudioData(forwardArrayBuffer);
+            _whoosh.sampleReverse = await _whoosh.context.decodeAudioData(reverseArrayBuffer);
         } catch (err) {
             // Silent fallback
         }
@@ -1618,7 +1618,6 @@
         // FORCE cleanup of any stale nodes before creating new ones
         // This prevents "cannot call start more than once" errors
         if (_whoosh.source || _whoosh.noiseSource || _whoosh.gain) {
-            console.warn('[mobile_note_highway] ⚠️ Forcing cleanup of stale audio nodes before starting new whoosh');
             const wasActive = _whoosh.active;
             _whoosh.active = true; // Temporarily set so stopWhoosh doesn't early-return
             stopWhoosh();
@@ -1715,9 +1714,9 @@
                     _whoosh.lfo.start();
                     break;
                     
-                case 'theodin':
-                    if (!_whoosh.theodinForward || !_whoosh.theodinReverse) {
-                        loadTheoddinBuffers();
+                case 'sample':
+                    if (!_whoosh.sampleForward || !_whoosh.sampleReverse) {
+                        loadSampleBuffers();
                         
                         _whoosh.source = _whoosh.context.createOscillator();
                         _whoosh.source.type = 'sine';
@@ -1741,7 +1740,7 @@
                         _whoosh.lfo.start();
                     } else {
                         _whoosh.source = _whoosh.context.createBufferSource();
-                        _whoosh.source.buffer = isForward ? _whoosh.theodinForward : _whoosh.theodinReverse;
+                        _whoosh.source.buffer = isForward ? _whoosh.sampleForward : _whoosh.sampleReverse;
                         _whoosh.source.loop = true;
                         
                         const absVel = Math.abs(velocity);
@@ -1801,12 +1800,12 @@
                     }
                     break;
                     
-                case 'theodin':
-                    if (!_whoosh.theodinForward || !_whoosh.theodinReverse) {
+                case 'sample':
+                    if (!_whoosh.sampleForward || !_whoosh.sampleReverse) {
                         // Fall through
                     } else {
                         const currentBuffer = _whoosh.source.buffer;
-                        const targetBuffer = isForward ? _whoosh.theodinForward : _whoosh.theodinReverse;
+                        const targetBuffer = isForward ? _whoosh.sampleForward : _whoosh.sampleReverse;
                         
                         if (currentBuffer !== targetBuffer && targetBuffer) {
                             try {
@@ -2443,8 +2442,6 @@
      */
     function init() {
         if (!isMobile()) return;
-        
-        console.log('[mobile_note_highway] Activating on device:', DEVICE);
         
         // Inject CSS classes
         injectMobileStyles();
