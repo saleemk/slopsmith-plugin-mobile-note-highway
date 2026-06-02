@@ -173,6 +173,19 @@
     function isMobile() {
         return DEVICE === 'phone' || DEVICE === 'tablet';
     }
+
+    /**
+     * Get whether the plugin itself is enabled.
+     * @returns {boolean}
+     */
+    function getPluginEnabled() {
+        try {
+            const val = localStorage.getItem('mobile_note_highway.enabled');
+            return val !== 'false'; // default true
+        } catch (_) {
+            return true;
+        }
+    }
     
     // ═══════════════════════════════════════════════════════════════
     // State
@@ -2441,7 +2454,7 @@
      * Initialize Mobile Note Highway plugin
      */
     function init() {
-        if (!isMobile()) return;
+        if (!isMobile() || !getPluginEnabled()) return;
         
         // Inject CSS classes
         injectMobileStyles();
@@ -2565,6 +2578,14 @@
     }
     
     // Export settings function for settings panel
+    window.mnhSetPluginEnabled = function(enabled) {
+        try {
+            localStorage.setItem('mobile_note_highway.enabled', String(enabled));
+        } catch (err) {
+            console.error('[mobile_note_highway] Failed to save enabled state:', err);
+        }
+    };
+
     window.mnhSetWhooshType = function(type) {
         try {
             localStorage.setItem('mobile_note_highway.whooshType', type);

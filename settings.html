@@ -130,6 +130,35 @@
 </div>
 -->
 
+<div role="group" aria-labelledby="mnh-enable-heading" class="mb-6">
+    <h3 id="mnh-enable-heading" class="text-sm font-medium text-gray-400 mb-2">Mobile Note Highway</h3>
+    <p class="text-xs text-gray-500 mb-3">
+        Master switch for all mobile UI enhancements. When disabled, the plugin
+        will not activate on any device on the next page load.
+    </p>
+    <div class="mt-3">
+        <label class="flex items-center gap-3 cursor-pointer select-none">
+            <input type="checkbox" id="mnh-plugin-enabled"
+                onchange="window.mnhSetPluginEnabled && window.mnhSetPluginEnabled(this.checked)"
+                class="rounded border-gray-600 bg-dark-700 text-accent focus:ring-accent/40">
+            <span class="text-sm text-gray-300">Enable mobile optimizations</span>
+        </label>
+    </div>
+    <script>
+    (function () {
+        const checkbox = document.getElementById('mnh-plugin-enabled');
+        if (checkbox) {
+            try {
+                const saved = localStorage.getItem('mobile_note_highway.enabled');
+                checkbox.checked = saved !== 'false'; // default true
+            } catch (_) {
+                checkbox.checked = true;
+            }
+        }
+    })();
+    </script>
+</div>
+
 <div role="group" aria-labelledby="mnh-scrub-heading">
     <h3 id="mnh-scrub-heading" class="text-sm font-medium text-gray-400 mb-2">Mobile Note Highway — Scrub Behavior</h3>
     
