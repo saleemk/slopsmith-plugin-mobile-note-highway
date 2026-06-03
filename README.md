@@ -28,7 +28,7 @@ A touch-optimized note highway player plugin for [Slopsmith](https://github.com/
 
 ## Installation
 
-**Current version: v1.1.1** - iPad detection hotfix (iPadOS 13+ now correctly detected as tablet). See [Releases](https://github.com/saleemk/slopsmith-plugin-mobile-note-highway/releases) for full changelog.
+**Current version: v1.1.2** — Enable/disable toggle, portrait perspective tip, iPad detection fixes. See [Releases](https://github.com/saleemk/slopsmith-plugin-mobile-note-highway/releases) for full changelog.
 
 ### Manual Installation
 
@@ -102,15 +102,18 @@ The plugin detects your device type using screen width and touch capability, the
 - **Tablet (≥ 600px):** More controls with bigger touch targets and generous spacing
 - **Desktop:** Plugin stays dormant - standard Slopsmith interface
 
-Gesture detection, layout adjustments, and control hiding happen automatically. No configuration needed.
+Gesture detection, layout adjustments, and control hiding happen automatically.
 
 ### Settings
 
 Customize the plugin in **Settings → Mobile Note Highway**:
 
+- **Master switch** - Enable or disable all mobile optimizations without uninstalling the plugin
 - **Scrub Sensitivity** - Adjust how responsive vertical scrubbing feels (0.5x - 2.0x)
-- **Audio Feedback** - Enable/disable whoosh sound and choose from 9 sound types:
-  - `tape_flutter` (default), `sawtooth`, `sine`, `whitenoise`, `rumble`, `crackle`, `clicks`, `vinyl_scratch`, `mechanical`
+- **Audio Feedback** - Enable/disable whoosh sound and choose from 4 sound types:
+  - `tape_flutter` (default), `sawtooth`, `sine`, `whitenoise`
+
+**3D Highway portrait tip:** If you use the 3D highway visualization, the camera can feel too far away in portrait mode. Go to **Settings → 3D Highway → Advanced camera settings**, enable *Lock camera at frets 1-12*, then set *Locked zoom* to 0.00 for a closer, more natural perspective.
 
 ## Compatibility
 
