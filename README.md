@@ -2,7 +2,7 @@
 
 [![GitHub release](https://img.shields.io/github/v/release/saleemk/slopsmith-plugin-mobile-note-highway)](https://github.com/saleemk/slopsmith-plugin-mobile-note-highway/releases)
 
-A touch-optimized note highway player plugin for [Slopsmith](https://github.com/slopsmith/slopsmith) that transforms the player experience on phones and tablets. Collapsible controls, intuitive gestures with live audio feedback, and device-adaptive layouts let you focus on playing.
+A touch-optimized note highway player plugin for [Slopsmith](https://github.com/slopsmith/slopsmith) that transforms the player experience on phones and tablets. Collapsible controls, organized expanded sections, intuitive gestures with live audio feedback, and device-adaptive layouts let you focus on playing.
 
 **Tested on iOS (portrait mode).** Android should work and likely has native touch feedback, but hasn't been verified.
 
@@ -10,7 +10,7 @@ A touch-optimized note highway player plugin for [Slopsmith](https://github.com/
 
 <img width="300" alt="Phone collapsed view" src="https://github.com/user-attachments/assets/945c5a8b-c3b4-4abf-b863-a46c3488f3d8" />&nbsp;&nbsp;&nbsp;&nbsp;<img width="300" alt="Phone expanded view" src="https://github.com/user-attachments/assets/ef0cebfc-23e0-4d2e-b710-0096f177dcde" />
 
-*Collapsed view shows essentials (back, play, arrangement). Swipe up to reveal all controls. *
+*Collapsed view shows essentials (back, play, arrangement). Swipe up to reveal the organized expanded controls.*
 
 ### Tablet View
 
@@ -21,6 +21,8 @@ A touch-optimized note highway player plugin for [Slopsmith](https://github.com/
 ## Features
 
 - **Collapsible controls** - Swipe up/down to show/hide advanced tools. Only essentials visible by default.
+- **Organized expanded controls** - Expanded mode groups controls into Playback, Sliders, Practice, Stems, and More controls sections.
+- **More controls accordion** - Secondary display and plugin actions stay tucked away until needed.
 - **Swipe up/down on highway** - Scrub through the song by dragging vertically with live highway preview - matches the natural flow of notes scrolling toward you
 - **Tap to play/pause** - Single tap anywhere on the highway
 - **Double tap to loop** - Set A/B loop markers with double taps (A → B → Clear)
@@ -28,7 +30,7 @@ A touch-optimized note highway player plugin for [Slopsmith](https://github.com/
 
 ## Installation
 
-**Current version: v1.1.2** — Enable/disable toggle, portrait perspective tip, iPad detection fixes. See [Releases](https://github.com/saleemk/slopsmith-plugin-mobile-note-highway/releases) for full changelog.
+**Current version: v1.1.3** — Organized expanded controls, More controls accordion, Stems row support, and improved phone/tablet layouts. See [Releases](https://github.com/saleemk/slopsmith-plugin-mobile-note-highway/releases) for full changelog.
 
 ### Manual Installation
 
@@ -80,17 +82,15 @@ Open any song on your phone or tablet — the plugin activates automatically.
 - **Tap** → jump to that position instantly
 
 **What's visible by default:**
-- **Phone:** Back button, seek buttons, play controls, arrangement selector
-- **Tablet:** Back button, seek buttons, play controls, arrangement selector, difficulty slider, speed slider
+- **Phone:** Back button, seek buttons, play controls, arrangement selector, default arrangement pin
+- **Tablet:** Back button, seek buttons, play controls, arrangement selector, default arrangement pin, difficulty slider, speed slider
 
-**Hidden until you swipe up:**
-- Loop controls (A/B buttons)
-- Visualization picker
-- Audio mixer
-- A/V offset slider
-- Quality/HD selector
-- Lyrics toggle
-- All plugin buttons (fretboard, tones, detect, step mode, etc.)
+**Expanded view:**
+- **Playback:** Back, seek, play/pause, arrangement selector, default pin
+- **Sliders:** Difficulty, speed, and A/V offset
+- **Practice:** Loop controls, detect, step mode, tuner
+- **Stems:** Stem mixer controls, shown only for stem-format songs
+- **More controls:** Mixer, Lyrics, Simplify, HD, 3D Highway, Save, Tones, Fretboard, and other plugin actions
 
 All gestures show brief visual feedback confirming the action.
 
@@ -129,13 +129,16 @@ Future improvements planned:
 
 - **Configurable essential controls** - Let users customize which controls appear in collapsed view
 - **Landscape optimization** - Better layout and spacing for horizontal orientation
-- **Expanded view organization** - Group related buttons and plugins into categorized sections (Practice/Audio/Visual/Plugins) using CSS Grid for cleaner, more intuitive control layout
+- **Expanded view polish** - Continue refining spacing, orientation behavior, and plugin grouping
 - ~~**Gesture refinement** - Re-evaluate swipe left/right behavior for better seek control~~
 
 ## Technical notes
 
 - Pure vanilla JavaScript, no dependencies
 - Uses `MutationObserver` to catch plugin buttons as they load
+- Routes expanded controls into functional section rows while keeping collapsed visibility separate
+- Uses song metadata (`highway.getSongInfo().stems`) to show the Stems row only for stem-format songs
+- Provides a More controls accordion for secondary display and plugin actions
 - Hooks into `setLoopStart`/`setLoopEnd`/`clearLoop` for gesture sync
 - Web Audio API for scrubbing audio feedback
 - Intercepts section_map plugin's drag events to add live highway updates
