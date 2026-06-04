@@ -14,7 +14,7 @@ A touch-optimized note highway player plugin for [Slopsmith](https://github.com/
 
 ### Tablet View
 
-<img width="450" alt="Tablet collapsed view" src="https://github.com/user-attachments/assets/e27acd3e-6b04-4901-93d5-869ed30d7918" /> <img width="450" alt="Tablet expanded view" src="https://github.com/user-attachments/assets/b52f36c7-dc12-429c-9fa9-c7cb1e6062c2" />
+<img width="400" alt="Tablet collapsed view" src="https://github.com/user-attachments/assets/e27acd3e-6b04-4901-93d5-869ed30d7918" /> <img width="400" alt="Tablet expanded view" src="https://github.com/user-attachments/assets/b52f36c7-dc12-429c-9fa9-c7cb1e6062c2" />
 
 *Collapsed view includes difficulty and speed sliders. Expanded view reveals full control panel with proper spacing.*
 
