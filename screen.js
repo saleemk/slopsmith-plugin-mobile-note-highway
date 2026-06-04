@@ -1010,6 +1010,7 @@
     function applyExpandedSliderRowStyles(forceExpanded) {
         var expanded = (typeof forceExpanded === 'boolean') ? forceExpanded : _ui.expanded;
         var useEqualWidthSliders = expanded && (DEVICE === 'phone' || DEVICE === 'tablet');
+        var useCollapsedTabletFit = !expanded && DEVICE === 'tablet';
         var wrapperIds = [WRAPPER_IDS.MASTERY, WRAPPER_IDS.SPEED, WRAPPER_IDS.AV];
         var sliderIds = ['mastery-slider', 'speed-slider', 'player-av-offset-slider'];
 
@@ -1020,10 +1021,17 @@
                 wrapper.style.flex = '1 1 0';
                 wrapper.style.minWidth = '0';
                 wrapper.style.width = 'auto';
+                wrapper.style.maxWidth = '';
+            } else if (useCollapsedTabletFit && (id === WRAPPER_IDS.MASTERY || id === WRAPPER_IDS.SPEED)) {
+                wrapper.style.flex = '1 1 0';
+                wrapper.style.minWidth = '0';
+                wrapper.style.width = 'auto';
+                wrapper.style.maxWidth = '';
             } else {
                 wrapper.style.flex = '';
                 wrapper.style.minWidth = '';
                 wrapper.style.width = '';
+                wrapper.style.maxWidth = '';
             }
         });
 
@@ -1031,6 +1039,9 @@
             var slider = document.getElementById(id);
             if (!slider) return;
             if (useEqualWidthSliders) {
+                slider.style.width = '100%';
+                slider.style.minWidth = '0';
+            } else if (useCollapsedTabletFit && (id === 'mastery-slider' || id === 'speed-slider')) {
                 slider.style.width = '100%';
                 slider.style.minWidth = '0';
             } else {
