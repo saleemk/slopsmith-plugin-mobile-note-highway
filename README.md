@@ -8,13 +8,13 @@ A touch-optimized note highway player plugin for [Slopsmith](https://github.com/
 
 ### Phone View
 
-<img width="300" alt="Phone collapsed view" src="https://github.com/user-attachments/assets/945c5a8b-c3b4-4abf-b863-a46c3488f3d8" />&nbsp;&nbsp;&nbsp;&nbsp;<img width="300" alt="Phone expanded view" src="https://github.com/user-attachments/assets/ef0cebfc-23e0-4d2e-b710-0096f177dcde" />
+<img width="300" alt="Phone collapsed view" src="https://github.com/user-attachments/assets/34e07d52-5f16-4c87-8c00-c3c9c014060a" />&nbsp;&nbsp;&nbsp;&nbsp;<img width="300" alt="Phone expanded view" src="https://github.com/user-attachments/assets/fac98333-00ae-4143-b65b-ea6bbdcd0dcc" />
 
 *Collapsed view shows essentials (back, play, arrangement). Swipe up to reveal the organized expanded controls.*
 
 ### Tablet View
 
-<img width="450" alt="Tablet collapsed view" src="https://github.com/user-attachments/assets/50a5d8be-2895-41b1-a220-5bb7423d4603" /> <img width="450" alt="Tablet expanded view" src="https://github.com/user-attachments/assets/85977b57-dc8a-42ab-9ecf-a9df1b4f3626" />
+<img width="450" alt="Tablet collapsed view" src="https://github.com/user-attachments/assets/e27acd3e-6b04-4901-93d5-869ed30d7918" /> <img width="450" alt="Tablet expanded view" src="https://github.com/user-attachments/assets/b52f36c7-dc12-429c-9fa9-c7cb1e6062c2" />
 
 *Collapsed view includes difficulty and speed sliders. Expanded view reveals full control panel with proper spacing.*
 
