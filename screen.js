@@ -196,6 +196,11 @@
         expanded: false,           // was _toolsExpanded
         swipeIndicator: null,      // was _swipeIndicator
     };
+
+    // Expanded-only section accordion state
+    const _expandedSectionState = {
+        tools: false,
+    };
     
     // Highway gesture state (scrubbing, taps, loop markers)
     const _highway = {
@@ -259,6 +264,10 @@
     let _highway3dObserver = null;
     let _highway3dAdjusted = false;
     
+    // Expanded section row placement tracking
+    const _expandedControlPlacement = new WeakMap();
+    const _expandedControlMovedOrder = [];
+    
     // ═══════════════════════════════════════════════════════════════
     // Constants
     // ═══════════════════════════════════════════════════════════════
@@ -285,6 +294,14 @@
         SWIPE_INDICATOR: 'mobile-swipe-indicator',
         END_SPACER: 'mobile-end-spacer',
     };
+
+    const HELPER_CLASSES = {
+        SECTION_HEADER: 'mnh-section-header',
+    };
+
+    const SECTION_HEADER_IDS = {
+        PLUGINS: 'mnh-section-header-plugins',
+    };
     
     /**
      * Check if element is inside one of our wrapper divs
@@ -302,7 +319,82 @@
      */
     function isHelperElement(element) {
         const id = element?.id;
-        return id === HELPER_IDS.SWIPE_INDICATOR || id === HELPER_IDS.END_SPACER;
+        return id === HELPER_IDS.SWIPE_INDICATOR ||
+               id === HELPER_IDS.END_SPACER ||
+               isSectionHeaderElement(element);
+    }
+
+    function isSectionHeaderElement(element) {
+        return !!(
+            element &&
+            element.nodeType === Node.ELEMENT_NODE &&
+            (
+                element.classList?.contains(HELPER_CLASSES.SECTION_HEADER) ||
+                (element.closest && element.closest('.' + HELPER_CLASSES.SECTION_HEADER))
+            )
+        );
+    }
+
+    function isToolsOpen() {
+        return !!_expandedSectionState.tools;
+    }
+
+    function setToolsOpen(open) {
+        _expandedSectionState.tools = !!open;
+    }
+
+    function applyToolsSectionVisibility() {
+        var open = isToolsOpen();
+        TOOLS_ROW_IDS.forEach(function(rowId) {
+            var row = document.getElementById(rowId);
+            if (row) {
+                row.style.display = open ? 'flex' : 'none';
+            }
+        });
+        var header = document.getElementById(SECTION_HEADER_IDS.PLUGINS);
+        if (header) {
+            header.setAttribute('aria-expanded', open ? 'true' : 'false');
+            header.textContent = 'More controls ' + (open ? '\u25B4' : '\u25BE');
+        }
+    }
+
+    function ensureExpandedSectionHeaders(controls) {
+        var pluginsRow = document.getElementById(ROW_IDS.PLUGINS);
+        if (!pluginsRow) return;
+        var header = document.getElementById(SECTION_HEADER_IDS.PLUGINS);
+        if (!header) {
+            header = document.createElement('button');
+            header.id = SECTION_HEADER_IDS.PLUGINS;
+            header.type = 'button';
+            header.className = HELPER_CLASSES.SECTION_HEADER;
+            header.setAttribute('data-mnh-section-target', ROW_IDS.PLUGINS);
+            header.setAttribute('aria-controls', ROW_IDS.PLUGINS);
+            header.style.cssText = [
+                'display:inline-flex',
+                'align-items:center',
+                'justify-content:flex-start',
+                'gap:6px',
+                'width:calc(100% - 52px)',
+                'height:44px',
+                'min-height:44px',
+                'padding:0 10px',
+                'border:1px solid rgba(75,85,99,0.25)',
+                'border-radius:6px',
+                'background:rgba(17,24,39,0.28)',
+                'color:#cbd5e1',
+                'font-size:12px',
+                'font-weight:600',
+                'text-align:left'
+            ].join(';') + ';';
+            header.style.order = '360';
+            header.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                setToolsOpen(!isToolsOpen());
+                applyToolsSectionVisibility();
+            });
+            controls.insertBefore(header, pluginsRow);
+        }
     }
     
     // ═══════════════════════════════════════════════════════════════
@@ -408,15 +500,6 @@
             .mobile-button.mobile-hidden { display: none !important; }
             .mobile-hidden { display: none !important; }
             
-            /* Phantom spacer reserves space for the floating "?" help button on the last flex row only */
-            #mobile-end-spacer {
-                order: 9999;
-                width: 56px;
-                min-height: 1px;
-                flex-shrink: 0;
-                pointer-events: none;
-            }
-            
             /* Back button (relocated close button) - icon-only, white triangle */
             #mobile-back-btn .mobile-back-svg {
                 width: ${IS_TABLET ? 16 : 14}px;
@@ -454,15 +537,6 @@
             .mobile-button.mobile-hidden { display: none !important; }
             .mobile-hidden { display: none !important; }
             
-            /* Phantom spacer reserves space for the floating "?" help button on the last flex row only */
-            #mobile-end-spacer {
-                order: 9999;
-                width: 56px;
-                min-height: 1px;
-                flex-shrink: 0;
-                pointer-events: none;
-            }
-            
             /* Back button (relocated close button) - icon-only, white triangle */
             #mobile-back-btn .mobile-back-svg {
                 width: ${IS_TABLET ? 16 : 14}px;
@@ -477,7 +551,7 @@
             }
         `;
     }
-    
+
     // ═══════════════════════════════════════════════════════════════
     // Device Resize Handling
     // ═══════════════════════════════════════════════════════════════
@@ -598,7 +672,8 @@
         // Essential control IDs (phone: play + arrangement; tablet adds difficulty + speed)
         const essentialIds = [
             'btn-play',
-            'arr-select'
+            'arr-select',
+            'arr-default-pin'
         ];
         if (IS_TABLET) {
             essentialIds.push('mastery-slider', 'mastery-slider-label', 'mastery-label', 'speed-slider', 'speed-label');
@@ -637,11 +712,225 @@
             }
         }
     }
-    
+
     // ═══════════════════════════════════════════════════════════════
     // Control Order & Styling
-    // ═══════════════════════════════════════════════════════════════
-    
+    // ═══════════════════════════════════════════════════════════════    
+    // ── Expanded Section Row Classification ──
+    // Maps controls to functional groups for expanded view layout.
+    // Separate from collapsed visibility (isEssentialControl / hideControl).
+
+    const ROW_IDS = {
+        PLAYBACK: 'mnh-row-playback',
+        SLIDERS: 'mnh-row-sliders',
+        FEATURES: 'mnh-row-features',
+        PRACTICE: 'mnh-row-practice',
+        STEMS: 'mnh-row-stems',
+        PLUGINS: 'mnh-row-plugins',
+    };
+
+    function isSectionRowWrapper(el) {
+        return !!(el && el.nodeType === Node.ELEMENT_NODE && el.id && Object.values(ROW_IDS).indexOf(el.id) !== -1);
+    }
+
+    // Row IDs controlled by the Tools accordion header
+    const TOOLS_ROW_IDS = [
+        ROW_IDS.FEATURES,
+        ROW_IDS.PLUGINS,
+    ];
+
+    // ── Stems Row Visibility (song-metadata–driven) ──
+    let _currentSongHasStems = false;
+
+    function currentSongHasStemsFromInfo() {
+        var info = window.highway && window.highway.getSongInfo && window.highway.getSongInfo();
+        return !!(info && Array.isArray(info.stems) && info.stems.length > 0);
+    }
+
+    function updateCurrentSongStemState() {
+        _currentSongHasStems = currentSongHasStemsFromInfo();
+        return _currentSongHasStems;
+    }
+
+    function isStemsControl(el) {
+        return !!(el && (
+            el.id === 'stems-mixer' ||
+            (el.querySelector && el.querySelector('#stems-mixer'))
+        ));
+    }
+
+    function hideStaleStemsControl(el) {
+        if (!el) return;
+        el.classList.add('mobile-hide-advanced');
+        el.classList.add('mobile-hidden');
+    }
+
+    function applyStemsRowVisibility() {
+        var row = document.getElementById(ROW_IDS.STEMS);
+        if (!row) return;
+        var hasChildContent = Array.from(row.children).some(function(child) {
+            return !isHelperElement(child);
+        });
+        row.style.display = (_currentSongHasStems && hasChildContent) ? 'flex' : 'none';
+    }
+
+    function classifyControlForExpandedRow(el) {
+        if (!el || el.nodeType !== Node.ELEMENT_NODE) return ROW_IDS.PLUGINS;
+
+        // --- Playback: back, seek, play, arrangement, pin ---
+        if (el.id === 'btn-play') return ROW_IDS.PLAYBACK;
+        if (el.id === 'arr-select') return ROW_IDS.PLAYBACK;
+        if (el.id === 'arr-default-pin') return ROW_IDS.PLAYBACK;
+        var onclick = el.getAttribute('onclick');
+        if (onclick && (
+            onclick.indexOf("showScreen('home')") !== -1 ||
+            onclick.indexOf('seekBy(-5)') !== -1 ||
+            onclick.indexOf('seekBy(5)') !== -1
+        )) return ROW_IDS.PLAYBACK;
+
+        // --- Sliders: difficulty, speed, A/V offset ---
+        if (el.id === 'mastery-slider' || el.id === 'speed-slider' || el.id === 'player-av-offset-slider') return ROW_IDS.SLIDERS;
+        if (el.id === WRAPPER_IDS.MASTERY || el.id === WRAPPER_IDS.SPEED || el.id === WRAPPER_IDS.AV) return ROW_IDS.SLIDERS;
+
+        // --- Features: mixer, lyrics, simplify, HD, 3D ---
+        if (el.id === 'btn-lyrics' || el.id === 'quality-select' || el.id === 'viz-picker') return ROW_IDS.FEATURES;
+        var txt = (el.textContent || '').toLowerCase().trim();
+        if (
+            txt === 'mixer' ||
+            txt === 'lyrics' ||
+            txt === 'simplify' ||
+            txt === 'simplify chords' ||
+            txt === 'hd' ||
+            txt === '3d highway' ||
+            txt === '3d' ||
+            txt.indexOf('mixer') === 0 ||
+            txt.indexOf('lyrics') === 0 ||
+            txt.indexOf('simplify') === 0 ||
+            txt.indexOf('hd') === 0 ||
+            txt.indexOf('3d highway') === 0
+        ) return ROW_IDS.FEATURES;
+
+        // --- Practice: loop A/B/save, detect, step, tuner ---
+        if (onclick && (onclick.indexOf('setLoopStart') !== -1 || onclick.indexOf('setLoopEnd') !== -1 || onclick.indexOf('clearLoop') !== -1)) return ROW_IDS.PRACTICE;
+        if (txt && /detect|step|tuner/i.test(txt)) return ROW_IDS.PRACTICE;
+
+        // --- Stems: stem mixer container ---
+        if (isStemsControl(el)) {
+            if (_currentSongHasStems) return ROW_IDS.STEMS;
+            hideStaleStemsControl(el);
+            return null;
+        }
+
+        // --- Everything else ---
+        return ROW_IDS.PLUGINS;
+    }
+
+    // ── Expanded Section Row Build & Teardown ──
+
+    function ensureExpandedControlRows(controls) {
+        var wrappers = {};
+        var rows = [
+            { id: ROW_IDS.PLAYBACK, order: '0' },
+            { id: ROW_IDS.SLIDERS, order: '100' },
+            { id: ROW_IDS.PRACTICE, order: '300' },
+            { id: ROW_IDS.STEMS, order: '350' },
+            { id: ROW_IDS.FEATURES, order: '375' },
+            { id: ROW_IDS.PLUGINS, order: '400' }
+        ];
+        for (var r = 0; r < rows.length; r++) {
+            var row = rows[r];
+            var wrapper = document.getElementById(row.id);
+            if (!wrapper) {
+                wrapper = document.createElement('div');
+                wrapper.id = row.id;
+                wrapper.className = 'mnh-section-row';
+                wrapper.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;width:100%;column-gap:6px;row-gap:6px;margin-bottom:6px;';
+                wrapper.style.order = row.order;
+                controls.appendChild(wrapper);
+            }
+            wrappers[row.id] = wrapper;
+        }
+        return wrappers;
+    }
+
+    function buildExpandedControlRows(controls) {
+        updateCurrentSongStemState();
+        var originalChildren = Array.from(controls.children);
+        var wrappers = ensureExpandedControlRows(controls);
+        for (var i = 0; i < originalChildren.length; i++) {
+            var el = originalChildren[i];
+            if (!el || el.nodeType !== Node.ELEMENT_NODE) continue;
+            if (isHelperElement(el)) continue;
+            if (isSectionRowWrapper(el)) continue;
+            if (isStemsControl(el) && !_currentSongHasStems) {
+                hideStaleStemsControl(el);
+                continue;
+            }
+            var rowId = classifyControlForExpandedRow(el);
+            if (!rowId) continue;
+            var wrap = wrappers[rowId];
+            if (!wrap || el.parentElement === wrap) continue;
+            if (!_expandedControlPlacement.has(el)) {
+                _expandedControlPlacement.set(el, {
+                    parent: el.parentElement,
+                    nextSibling: originalChildren[i + 1] || null,
+                    order: el.style.order,
+                    display: el.style.display,
+                    marginLeft: el.style.marginLeft,
+                    marginRight: el.style.marginRight
+                });
+                _expandedControlMovedOrder.push(el);
+            }
+            wrap.appendChild(el);
+        }
+
+        ensureExpandedSectionHeaders(controls);
+        applyToolsSectionVisibility();
+        applyStemsRowVisibility();
+        applyExpandedRowWrapperLayout();
+        applyExpandedSliderRowStyles();
+    }
+
+    function teardownExpandedControlRows(controls) {
+        for (var i = _expandedControlMovedOrder.length - 1; i >= 0; i--) {
+            var el = _expandedControlMovedOrder[i];
+            var saved = _expandedControlPlacement.get(el);
+            if (!saved) continue;
+            var parent = saved.parent;
+            var nextSibling = saved.nextSibling;
+            if (parent && parent.contains) {
+                try {
+                    if (nextSibling && parent.contains(nextSibling)) {
+                        parent.insertBefore(el, nextSibling);
+                    } else {
+                        parent.appendChild(el);
+                    }
+                } catch (_) {
+                    if (parent !== el.parentElement) {
+                        parent.appendChild(el);
+                    }
+                }
+            }
+            el.style.order = saved.order;
+            el.style.display = saved.display;
+            el.style.marginLeft = saved.marginLeft;
+            el.style.marginRight = saved.marginRight;
+            _expandedControlPlacement.delete(el);
+        }
+        _expandedControlMovedOrder.length = 0;
+
+        if (controls && controls.querySelectorAll) {
+            controls.querySelectorAll('.' + HELPER_CLASSES.SECTION_HEADER).forEach(function(header) {
+                header.remove();
+            });
+        }
+
+        Object.values(ROW_IDS).forEach(function(rowId) {
+            var wrapper = document.getElementById(rowId);
+            if (wrapper) wrapper.remove();
+        });
+    }
+
     /**
      * Apply order and margin values to priority controls
      * Priority order: back=-1, play=0, arr=1, diff=2, speed=3, rest=100+
@@ -655,13 +944,14 @@
         
         if (arrSelect) {
             arrSelect.style.order = CONTROL_ORDER.ARRANGEMENT;
-            arrSelect.style.marginLeft = '12px';
+            arrSelect.style.marginLeft = _ui.expanded ? '0' : ((DEVICE === 'phone') ? '4px' : '12px');
             arrSelect.style.width = CFG.selectWidth + 'px';
-            arrSelect.style.marginRight = (!IS_TABLET && _ui.expanded) ? 'auto' : '0';
+            arrSelect.style.marginRight = '0';
         }
         
         if (arrDefaultPin) {
-            arrDefaultPin.style.order = '101';  // After A/V offset (order 100)
+            arrDefaultPin.style.order = '2';
+            arrDefaultPin.style.marginLeft = (DEVICE === 'phone' && !_ui.expanded) ? '4px' : '0';
         }
         
         if (masteryWrapper) {
@@ -678,6 +968,80 @@
         if (avWrapper) {
             avWrapper.style.order = CONTROL_ORDER.REST;
         }
+
+        applyExpandedSliderRowStyles();
+    }
+
+    function applyExpandedRowWrapperLayout() {
+        var playbackRow = document.getElementById(ROW_IDS.PLAYBACK);
+        var slidersRow = document.getElementById(ROW_IDS.SLIDERS);
+
+        if (playbackRow) {
+            playbackRow.style.width = '100%';
+            playbackRow.style.flex = '';
+            playbackRow.style.minWidth = '';
+            playbackRow.style.marginRight = '';
+        }
+
+        if (slidersRow) {
+            slidersRow.style.width = '100%';
+            slidersRow.style.flex = '';
+            slidersRow.style.minWidth = '';
+            slidersRow.style.flexWrap = '';
+        }
+
+        if (_ui.expanded && DEVICE === 'tablet') {
+            if (playbackRow) {
+                playbackRow.style.width = 'auto';
+                playbackRow.style.flex = '0 0 auto';
+                playbackRow.style.minWidth = '0';
+                playbackRow.style.marginRight = '6px';
+            }
+
+            if (slidersRow) {
+                slidersRow.style.width = 'auto';
+                slidersRow.style.flex = '1 1 0';
+                slidersRow.style.minWidth = '0';
+                slidersRow.style.flexWrap = 'nowrap';
+            }
+        }
+    }
+
+    function applyExpandedSliderRowStyles(forceExpanded) {
+        var expanded = (typeof forceExpanded === 'boolean') ? forceExpanded : _ui.expanded;
+        var useEqualWidthSliders = expanded && (DEVICE === 'phone' || DEVICE === 'tablet');
+        var wrapperIds = [WRAPPER_IDS.MASTERY, WRAPPER_IDS.SPEED, WRAPPER_IDS.AV];
+        var sliderIds = ['mastery-slider', 'speed-slider', 'player-av-offset-slider'];
+
+        wrapperIds.forEach(function(id) {
+            var wrapper = document.getElementById(id);
+            if (!wrapper) return;
+            if (useEqualWidthSliders) {
+                wrapper.style.flex = '1 1 0';
+                wrapper.style.minWidth = '0';
+                wrapper.style.width = 'auto';
+            } else {
+                wrapper.style.flex = '';
+                wrapper.style.minWidth = '';
+                wrapper.style.width = '';
+            }
+        });
+
+        sliderIds.forEach(function(id) {
+            var slider = document.getElementById(id);
+            if (!slider) return;
+            if (useEqualWidthSliders) {
+                slider.style.width = '100%';
+                slider.style.minWidth = '0';
+            } else {
+                slider.style.width = '';
+                if (CFG.sliderMinWidth > 0) {
+                    slider.style.minWidth = CFG.sliderMinWidth + 'px';
+                } else {
+                    slider.style.minWidth = '';
+                }
+            }
+        });
     }
     
     // ═══════════════════════════════════════════════════════════════
@@ -979,16 +1343,6 @@
             controls.appendChild(_ui.swipeIndicator);
         }
         
-        // Inject a phantom end-spacer that reserves 56px on the LAST flex row
-        // for the floating "?" help button. Using order:9999 + flex-shrink:0
-        // ensures it always lands as the last item on whatever row is last.
-        if (!document.getElementById(HELPER_IDS.END_SPACER)) {
-            const spacer = document.createElement('div');
-            spacer.id = HELPER_IDS.END_SPACER;
-            spacer.setAttribute('aria-hidden', 'true');
-            controls.appendChild(spacer);
-        }
-
         // Apply control order and margins
         applyControlOrder();
 
@@ -1005,10 +1359,10 @@
             closeButton.style.order = CONTROL_ORDER.BACK;
             closeButton.classList.remove('ml-auto');
             closeButton.style.marginLeft = '0';
-            closeButton.style.marginRight = '12px';
+            closeButton.style.marginRight = _ui.expanded ? '0' : ((DEVICE === 'phone') ? '4px' : '12px');
         }
     }
-    
+
     // ─────────────────────────────────────────────────────────────────
     // Re-application & Classification
     // ─────────────────────────────────────────────────────────────────
@@ -1065,7 +1419,15 @@
     function reclassifyAllControls() {
         const controls = document.getElementById('player-controls');
         if (!controls) return;
-        
+
+        updateCurrentSongStemState();
+
+        const shouldRebuildExpandedRows = _ui.expanded;
+        if (shouldRebuildExpandedRows) {
+            teardownExpandedControlRows(controls);
+            applyControlOrder();
+        }
+
         Array.from(controls.children).forEach(el => {
             if (isHelperElement(el)) return;
             
@@ -1092,7 +1454,11 @@
                 }
             }
         });
-        
+
+        if (shouldRebuildExpandedRows) {
+            buildExpandedControlRows(controls);
+        }
+
         // Ensure close button is transformed into a Back icon at far left (order: -1)
         const closeButton = Array.from(controls.querySelectorAll('button')).find(btn => {
             const onclick = btn.getAttribute('onclick');
@@ -1103,10 +1469,10 @@
             closeButton.style.order = CONTROL_ORDER.BACK;
             closeButton.classList.remove('ml-auto');
             closeButton.style.marginLeft = '0';
-            closeButton.style.marginRight = '12px';
+            closeButton.style.marginRight = _ui.expanded ? '0' : ((DEVICE === 'phone') ? '4px' : '12px');
         }
     }
-    
+
     // ─────────────────────────────────────────────────────────────────
     // Observer & Toggle
     // ─────────────────────────────────────────────────────────────────
@@ -1134,21 +1500,56 @@
                             if (node.nodeType !== Node.ELEMENT_NODE) return;
                             if (isHelperElement(node)) return;
                             if (isInsideWrapper(node)) return;
-                            
+                            if (isSectionRowWrapper(node)) return;
+                            if (node.closest && isSectionRowWrapper(node.closest('.mnh-section-row'))) return;
+
+                            updateCurrentSongStemState();
+
+                            if (isStemsControl(node) && !_currentSongHasStems) {
+                                hideStaleStemsControl(node);
+                                return;
+                            }
+
                             if (node.tagName === 'BUTTON') {
                                 node.classList.add('mobile-button');
                             }
-                            
+
                             if (!isEssentialControl(node)) {
                                 hideControl(node);
+                            }
+
+                            if (_ui.expanded) {
+                                var wrappers = ensureExpandedControlRows(controls);
+                                var rowId = classifyControlForExpandedRow(node);
+                                if (!rowId) return;
+                                var wrap = wrappers[rowId];
+                                if (wrap && node.parentElement !== wrap) {
+                                    if (!_expandedControlPlacement.has(node)) {
+                                        _expandedControlPlacement.set(node, {
+                                            parent: node.parentElement,
+                                            nextSibling: node.nextSibling,
+                                            order: node.style.order,
+                                            display: node.style.display,
+                                            marginLeft: node.style.marginLeft,
+                                            marginRight: node.style.marginRight
+                                        });
+                                        _expandedControlMovedOrder.push(node);
+                                    }
+                                    wrap.appendChild(node);
+                                    if (rowId === ROW_IDS.STEMS) {
+                                        applyStemsRowVisibility();
+                                    }
+                                }
                             }
                         });
                     } else if (mutation.type === 'attributes') {
                         const target = mutation.target;
-                        
+
                         if (isHelperElement(target)) return;
                         if (isInsideWrapper(target)) return;
-                        
+                        if (isSectionRowWrapper(target)) return;
+                        if (target.closest && isSectionRowWrapper(target.closest('.mnh-section-row'))) return;
+
                         if (target.nodeType === Node.ELEMENT_NODE && !isEssentialControl(target)) {
                             if (!target.classList.contains('mobile-hide-advanced')) {
                                 target.classList.add('mobile-hide-advanced');
@@ -1206,7 +1607,15 @@
         if (!controls) return;
 
         applyControlOrder();
-        
+
+        // Collapse: tear down section rows so collapsed visibility is
+        // applied to flat controls via the existing loop below.
+        if (!_ui.expanded) {
+            _expandedSectionState.tools = false;
+            teardownExpandedControlRows(controls);
+            applyControlOrder();
+        }
+
         // Re-scan ALL controls to catch any late-injected buttons
         Array.from(controls.children).forEach(el => {
             if (isHelperElement(el)) return;
@@ -1235,7 +1644,13 @@
                 }
             }
         });
-        
+
+        // Expand: move controls into section rows now that mobile-hidden
+        // has been removed by the visibility loop above.
+        if (_ui.expanded) {
+            buildExpandedControlRows(controls);
+        }
+
         // Transform close button
         const closeButton = Array.from(controls.querySelectorAll('button')).find(btn => {
             const onclick = btn.getAttribute('onclick');
@@ -1246,10 +1661,10 @@
             closeButton.style.order = CONTROL_ORDER.BACK;
             closeButton.classList.remove('ml-auto');
             closeButton.style.marginLeft = '0';
-            closeButton.style.marginRight = '12px';
+            closeButton.style.marginRight = _ui.expanded ? '0' : ((DEVICE === 'phone') ? '4px' : '12px');
         }
     }
-    
+
     // ─────────────────────────────────────────────────────────────────
     // Utility & Scheduling
     // ─────────────────────────────────────────────────────────────────
@@ -2371,20 +2786,19 @@
         
         // Stop observing
         stopControlsObserver();
-        
+
+        // Tear down expanded section rows before restoring mobile controls
+        const controls = document.getElementById('player-controls');
+        if (controls) {
+            teardownExpandedControlRows(controls);
+        }
+
         // Remove swipe indicator
         if (_ui.swipeIndicator && _ui.swipeIndicator.parentElement) {
             _ui.swipeIndicator.remove();
             _ui.swipeIndicator = null;
         }
         
-        // Remove phantom end-spacer
-        const endSpacer = document.getElementById(HELPER_IDS.END_SPACER);
-        if (endSpacer) endSpacer.remove();
-        
-        // Get controls element
-        const controls = document.getElementById('player-controls');
-
         // Restore close button to original state and clear positioning
         if (controls) {
             const backBtn = controls.querySelector('#mobile-back-btn') || Array.from(controls.querySelectorAll('button')).find(btn => {
@@ -2447,6 +2861,8 @@
             });
         }
         
+        applyExpandedSliderRowStyles(false);
+        _expandedSectionState.tools = false;
         _ui.expanded = false;
     }
     
@@ -2488,7 +2904,17 @@
                 disableControlsGestures();
             }
         });
-        
+
+        // Listen for song:loaded to refresh stems state from current song metadata.
+        // highway.js emits 'song:loaded' after song_info is assigned.
+        window.slopsmith.on('song:loaded', function() {
+            updateCurrentSongStemState();
+            if (window.slopsmith && window.slopsmith.getCurrentScreen && window.slopsmith.getCurrentScreen() === 'player') {
+                scheduleEnhancement(reclassifyAllControls, 50);
+                scheduleEnhancement(reclassifyAllControls, 250);
+            }
+        });
+
         // Hook into playSong to re-enhance section map when it re-renders
         const origPlaySong = window.playSong;
         if (origPlaySong) {
@@ -2499,7 +2925,9 @@
                 
                 // Stop any active whoosh from previous song/scrubbing
                 stopWhoosh();
-                
+
+                _currentSongHasStems = false;
+
                 await origPlaySong(filename, arrangement);
                 
                 syncLoopMarkerState();
@@ -2511,6 +2939,8 @@
                 scheduleEnhancement(enableHighwayGestures, 400);
                 scheduleEnhancement(enableControlsGestures, 150);
                 scheduleEnhancement(startHighway3dObserver, 600);
+                scheduleEnhancement(reclassifyAllControls, 150);
+                scheduleEnhancement(reclassifyAllControls, 500);
             };
         }
         
