@@ -395,6 +395,7 @@
             header.setAttribute('aria-expanded', open ? 'true' : 'false');
             header.textContent = 'More controls ' + (open ? '\u25B4' : '\u25BE');
         }
+        applyExpandedLandscapeToolsRowsLayout();
     }
 
     function ensureExpandedSectionHeaders(controls) {
@@ -1388,22 +1389,68 @@
             stemsRow.style.marginRight = '6px';
         }
 
-        // Features and Plugins: reset to baseline (content redesign is L4B)
+        // Features and Plugins: delegate to tools-row layout helper
+        applyExpandedLandscapeToolsRowsLayout();
+    }
+
+    function resetExpandedToolsRowLayout(row) {
+        if (!row) return;
+        row.style.width = '100%';
+        row.style.flex = '';
+        row.style.minWidth = '';
+        row.style.maxWidth = '';
+        row.style.flexWrap = '';
+        row.style.marginRight = '';
+        row.style.marginBottom = '6px';
+        row.style.overflowX = '';
+        row.style.overflowY = '';
+        row.style.touchAction = '';
+    }
+
+    function applyExpandedLandscapeToolsRowsLayout() {
         var featuresRow = document.getElementById(ROW_IDS.FEATURES);
-        if (featuresRow) {
-            featuresRow.style.width = '100%';
-            featuresRow.style.flex = '';
-            featuresRow.style.minWidth = '';
-            featuresRow.style.flexWrap = '';
-            featuresRow.style.marginRight = '';
-        }
         var pluginsRow = document.getElementById(ROW_IDS.PLUGINS);
+
+        if (!isLandscapeCompactControlsLayout()) {
+            resetExpandedToolsRowLayout(featuresRow);
+            resetExpandedToolsRowLayout(pluginsRow);
+            return;
+        }
+
+        var toolsOpen = isToolsOpen();
+
+        if (!toolsOpen) {
+            resetExpandedToolsRowLayout(featuresRow);
+            resetExpandedToolsRowLayout(pluginsRow);
+            return;
+        }
+
+        // FEATURES strip
+        if (featuresRow) {
+            featuresRow.style.width = 'auto';
+            featuresRow.style.flex = '0 1 auto';
+            featuresRow.style.minWidth = '0';
+            featuresRow.style.maxWidth = '100%';
+            featuresRow.style.flexWrap = 'nowrap';
+            featuresRow.style.marginRight = '6px';
+            featuresRow.style.marginBottom = '6px';
+            featuresRow.style.overflowX = 'visible';
+            featuresRow.style.overflowY = 'visible';
+            featuresRow.style.touchAction = '';
+        }
+
+        // PLUGINS strip
         if (pluginsRow) {
-            pluginsRow.style.width = '100%';
-            pluginsRow.style.flex = '';
-            pluginsRow.style.minWidth = '';
-            pluginsRow.style.flexWrap = '';
-            pluginsRow.style.marginRight = '';
+            pluginsRow.style.width = 'auto';
+            pluginsRow.style.flex = '1 1 260px';
+            pluginsRow.style.minWidth = '0';
+            pluginsRow.style.maxWidth = '100%';
+            pluginsRow.style.flexWrap = 'nowrap';
+            pluginsRow.style.marginRight = '0';
+            pluginsRow.style.marginBottom = '6px';
+            pluginsRow.style.overflowX = 'auto';
+            pluginsRow.style.overflowY = 'hidden';
+            pluginsRow.style.touchAction = 'pan-x';
         }
     }
 
