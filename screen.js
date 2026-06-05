@@ -1571,6 +1571,19 @@
         row.style.paddingBottom = '5px';
     }
 
+    function createMobileSliderWrapper(wrapperId) {
+        var wrapper = document.createElement('div');
+        wrapper.id = wrapperId;
+        applyMobileSliderWrapperBaseStyles(wrapper);
+        return wrapper;
+    }
+
+    function createMobileSliderLabelRow() {
+        var row = document.createElement('div');
+        applyMobileSliderLabelRowStyles(row);
+        return row;
+    }
+
     function applyMobileSliderLabelTextStyles(el) {
         el.style.fontSize = CFG.sliderLabelFontSize + 'px';
         el.style.lineHeight = '1';
@@ -1672,13 +1685,10 @@
         const speedLabel = document.getElementById('speed-label');
         if (speedSlider && speedLabel && speedSlider.parentElement === controls && speedLabel.parentElement === controls) {
             // Create wrapper container
-            var speedWrapper = document.createElement('div');
-            speedWrapper.id = WRAPPER_IDS.SPEED;
-            applyMobileSliderWrapperBaseStyles(speedWrapper);
+            var speedWrapper = createMobileSliderWrapper(WRAPPER_IDS.SPEED);
 
             // Create label row with static Speed label + separator + value
-            var speedLabelRow = document.createElement('div');
-            applyMobileSliderLabelRowStyles(speedLabelRow);
+            var speedLabelRow = createMobileSliderLabelRow();
 
             var speedStaticLabel = document.createElement('span');
             speedStaticLabel.textContent = 'Speed';
@@ -1711,13 +1721,10 @@
             masteryValue.parentElement === controls) {
             
             // Create column wrapper
-            var masteryWrapper = document.createElement('div');
-            masteryWrapper.id = WRAPPER_IDS.MASTERY;
-            applyMobileSliderWrapperBaseStyles(masteryWrapper);
+            var masteryWrapper = createMobileSliderWrapper(WRAPPER_IDS.MASTERY);
             
             // Create horizontal row for label + value
-            var masteryLabelRow = document.createElement('div');
-            applyMobileSliderLabelRowStyles(masteryLabelRow);
+            var masteryLabelRow = createMobileSliderLabelRow();
             
             // Insert wrapper before the label (label comes first in DOM)
             masteryLabel.parentElement.insertBefore(masteryWrapper, masteryLabel);
@@ -1748,13 +1755,10 @@
             avValue.parentElement === controls) {
             
             // Create column wrapper
-            var avWrapper = document.createElement('div');
-            avWrapper.id = WRAPPER_IDS.AV;
-            applyMobileSliderWrapperBaseStyles(avWrapper);
+            var avWrapper = createMobileSliderWrapper(WRAPPER_IDS.AV);
             
             // Create horizontal row for label + value
-            var avLabelRow = document.createElement('div');
-            applyMobileSliderLabelRowStyles(avLabelRow);
+            var avLabelRow = createMobileSliderLabelRow();
             
             // Insert wrapper before the label (label comes first in DOM)
             avLabel.parentElement.insertBefore(avWrapper, avLabel);
