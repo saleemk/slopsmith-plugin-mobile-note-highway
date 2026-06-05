@@ -51,6 +51,10 @@
         return hasTouch ? (window.innerWidth >= 600 ? 'tablet' : 'phone') : 'desktop';
     }
 
+    function detectOrientation() {
+        return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+    }
+
     /**
      * Per-device styling and behavior config.
      * Phone values exactly match the pre-refactor hardcoded numbers so phone
@@ -124,9 +128,28 @@
     };
     
     let DEVICE = detectDevice();
+    let ORIENTATION = detectOrientation();
     let CFG = CONFIG[DEVICE] || CONFIG.phone;
     let IS_TABLET = DEVICE === 'tablet';
-    
+    let IS_LANDSCAPE = ORIENTATION === 'landscape';
+    let IS_PORTRAIT = ORIENTATION === 'portrait';
+
+    function updateViewportState() {
+        var newDevice = detectDevice();
+        var newOrientation = detectOrientation();
+        var deviceChanged = newDevice !== DEVICE;
+        var orientationChanged = newOrientation !== ORIENTATION;
+
+        DEVICE = newDevice;
+        ORIENTATION = newOrientation;
+        CFG = CONFIG[DEVICE] || CONFIG.phone;
+        IS_TABLET = DEVICE === 'tablet';
+        IS_LANDSCAPE = ORIENTATION === 'landscape';
+        IS_PORTRAIT = ORIENTATION === 'portrait';
+
+        return { deviceChanged: deviceChanged, orientationChanged: orientationChanged };
+    }
+
     /**
      * Get current whoosh sound type from localStorage.
      * Configurable via Settings panel.
@@ -174,6 +197,14 @@
         return DEVICE === 'phone' || DEVICE === 'tablet';
     }
 
+    function getCurrentScreenId() {
+        if (window.slopsmith && typeof window.slopsmith.getCurrentScreen === 'function') {
+            return window.slopsmith.getCurrentScreen();
+        }
+        var activeScreen = document.querySelector('.screen.active');
+        return activeScreen ? activeScreen.id : null;
+    }
+
     /**
      * Get whether the plugin itself is enabled.
      * @returns {boolean}
@@ -204,6 +235,7 @@
 
     let _sectionPracticeOpen = false;
     let _sectionPracticeObserver = null;
+    let _mixerClampClickHandler = null;
     
     // Highway gesture state (scrubbing, taps, loop markers)
     const _highway = {
@@ -253,6 +285,7 @@
         playerHud: null,           // was _playerHudOriginalStyles
         highway3dOverlay: null,    // was _highway3dOverlayOriginalStyles
         sectionPractice: null,
+        mixerPopover: null,
     };
     
     // Timers (for cleanup on song change / screen exit)
@@ -362,6 +395,7 @@
             header.setAttribute('aria-expanded', open ? 'true' : 'false');
             header.textContent = 'More controls ' + (open ? '\u25B4' : '\u25BE');
         }
+        applyExpandedLandscapeToolsRowsLayout();
     }
 
     function ensureExpandedSectionHeaders(controls) {
@@ -401,6 +435,7 @@
             });
             controls.insertBefore(header, pluginsRow);
         }
+        applyExpandedSectionHeaderLayout();
     }
 
     function findSectionPracticeBar() {
@@ -546,6 +581,125 @@
         }
         _restore.sectionPractice = null;
         _sectionPracticeOpen = false;
+    }
+
+    // ── Mixer Popover Viewport Clamp ──
+
+    function findMixerPopover() {
+        return document.getElementById('mixer-popover');
+    }
+
+    function isMixerPopoverOpen(popover) {
+        return !!(popover && popover.isConnected && !popover.classList.contains('hidden'));
+    }
+
+    function storeMixerPopoverOriginalStyles(popover) {
+        if (_restore.mixerPopover) return;
+        _restore.mixerPopover = {
+            left: popover.style.left,
+            right: popover.style.right,
+            top: popover.style.top,
+            bottom: popover.style.bottom,
+            transform: popover.style.transform,
+            maxWidth: popover.style.maxWidth,
+            maxHeight: popover.style.maxHeight,
+            overflowX: popover.style.overflowX,
+            overflowY: popover.style.overflowY
+        };
+    }
+
+    function setStyleIfChanged(el, prop, value) {
+        if (el.style[prop] !== value) {
+            el.style[prop] = value;
+        }
+    }
+
+    function clearMixerPopoverViewportClamp() {
+        var popover = findMixerPopover();
+        if (!popover || !_restore.mixerPopover) return;
+        var orig = _restore.mixerPopover;
+        popover.style.left = orig.left;
+        popover.style.right = orig.right;
+        popover.style.top = orig.top;
+        popover.style.bottom = orig.bottom;
+        popover.style.transform = orig.transform;
+        popover.style.maxWidth = orig.maxWidth;
+        popover.style.maxHeight = orig.maxHeight;
+        popover.style.overflowX = orig.overflowX;
+        popover.style.overflowY = orig.overflowY;
+        _restore.mixerPopover = null;
+    }
+
+    function applyMixerPopoverViewportClamp() {
+        var popover = findMixerPopover();
+        if (!popover) return;
+
+        if (!isMixerPopoverOpen(popover)) {
+            if (_restore.mixerPopover) {
+                clearMixerPopoverViewportClamp();
+            }
+            return;
+        }
+
+        storeMixerPopoverOriginalStyles(popover);
+
+        // Temporarily restore original transform to avoid compounding translateX()
+        var origTransform = _restore.mixerPopover.transform || '';
+        popover.style.transform = origTransform;
+
+        var pad = 8;
+        setStyleIfChanged(popover, 'maxWidth', 'calc(100vw - ' + (pad * 2) + 'px)');
+        setStyleIfChanged(popover, 'maxHeight', 'calc(100vh - ' + (pad * 2) + 'px)');
+        setStyleIfChanged(popover, 'overflowX', 'auto');
+        setStyleIfChanged(popover, 'overflowY', 'auto');
+
+        var rect = popover.getBoundingClientRect();
+        var dx = 0;
+        if (rect.left < pad) {
+            dx = pad - rect.left;
+        } else if (rect.right > window.innerWidth - pad) {
+            dx = (window.innerWidth - pad) - rect.right;
+        }
+
+        if (dx !== 0) {
+            setStyleIfChanged(popover, 'transform', 'translateX(' + dx + 'px)');
+        } else if (origTransform) {
+            setStyleIfChanged(popover, 'transform', origTransform);
+        } else {
+            popover.style.transform = '';
+        }
+    }
+
+    function scheduleMixerPopoverClamp() {
+        setTimeout(applyMixerPopoverViewportClamp, 0);
+        requestAnimationFrame(applyMixerPopoverViewportClamp);
+        setTimeout(applyMixerPopoverViewportClamp, 100);
+    }
+
+    function setupMixerPopoverMobileClamp() {
+        var btnMixer = document.getElementById('btn-mixer');
+        if (!btnMixer) return;
+
+        if (!_mixerClampClickHandler) {
+            _mixerClampClickHandler = function() {
+                scheduleMixerPopoverClamp();
+            };
+        }
+
+        btnMixer.removeEventListener('click', _mixerClampClickHandler);
+        btnMixer.addEventListener('click', _mixerClampClickHandler);
+
+        // In case mixer is already open
+        scheduleMixerPopoverClamp();
+    }
+
+    function teardownMixerPopoverMobileClamp() {
+        var btnMixer = document.getElementById('btn-mixer');
+        if (btnMixer && _mixerClampClickHandler) {
+            btnMixer.removeEventListener('click', _mixerClampClickHandler);
+        }
+        _mixerClampClickHandler = null;
+        clearMixerPopoverViewportClamp();
     }
     
     // ═══════════════════════════════════════════════════════════════
@@ -712,18 +866,24 @@
      * Re-detects device type and re-enhances if needed
      */
     function handleResize() {
-        const newDevice = detectDevice();
-        if (newDevice !== DEVICE) {
-            DEVICE = newDevice;
-            CFG = CONFIG[DEVICE] || CONFIG.phone;
-            IS_TABLET = DEVICE === 'tablet';
+        var viewportChanged = updateViewportState();
+
+        var currentScreen = getCurrentScreenId();
+
+        if (viewportChanged.deviceChanged) {
             updateMobileStyles();
-            
-            // Re-enhance if on player screen
-            const currentScreen = window.slopsmith?.getCurrentScreen?.();
-            if (currentScreen === 'player') {
-                scheduleEnhancement(enhancePlayerControls, 100);
-            }
+        }
+
+        if (currentScreen === 'player' && viewportChanged.orientationChanged && _ui.expanded) {
+            toggleAdvancedControls(false);
+        }
+
+        if (currentScreen === 'player' && (viewportChanged.deviceChanged || viewportChanged.orientationChanged)) {
+            scheduleEnhancement(reclassifyAllControls, 100);
+        }
+
+        if (viewportChanged.deviceChanged && currentScreen === 'player') {
+            scheduleEnhancement(enhancePlayerControls, 100);
         }
     }
     
@@ -847,6 +1007,10 @@
         if (onclick && essentialOnclicks.some(fn => onclick.includes(fn))) return true;
         
         return false;
+    }
+
+    function isCollapsedVisibleControl(el) {
+        return isEssentialControl(el);
     }
     
     /**
@@ -1124,6 +1288,15 @@
     }
 
     function applyExpandedRowWrapperLayout() {
+        if (isLandscapeCompactControlsLayout()) {
+            applyExpandedLandscapeRowWrapperLayout();
+        } else {
+            applyExpandedPortraitRowWrapperLayout();
+        }
+        applyExpandedSectionHeaderLayout();
+    }
+
+    function applyExpandedPortraitRowWrapperLayout() {
         var playbackRow = document.getElementById(ROW_IDS.PLAYBACK);
         var slidersRow = document.getElementById(ROW_IDS.SLIDERS);
 
@@ -1155,6 +1328,148 @@
                 slidersRow.style.minWidth = '0';
                 slidersRow.style.flexWrap = 'nowrap';
             }
+        }
+    }
+
+    function isLandscapeCompactControlsLayout() {
+        return _ui.expanded && IS_LANDSCAPE && isMobile();
+    }
+
+    function applyExpandedLandscapeRowWrapperLayout() {
+        var rowIds = [ROW_IDS.PLAYBACK, ROW_IDS.SLIDERS, ROW_IDS.PRACTICE, ROW_IDS.STEMS, ROW_IDS.FEATURES, ROW_IDS.PLUGINS];
+
+        // Reset all rows to baseline first
+        rowIds.forEach(function(id) {
+            var row = document.getElementById(id);
+            if (!row) return;
+            row.style.width = '100%';
+            row.style.flex = '';
+            row.style.minWidth = '';
+            row.style.flexWrap = '';
+            row.style.marginRight = '';
+        });
+
+        // Playback row
+        var playbackRow = document.getElementById(ROW_IDS.PLAYBACK);
+        if (playbackRow) {
+            playbackRow.style.width = 'auto';
+            playbackRow.style.flex = '0 1 auto';
+            playbackRow.style.minWidth = '0';
+            playbackRow.style.flexWrap = 'nowrap';
+            playbackRow.style.marginRight = '6px';
+        }
+
+        // Sliders row
+        var slidersRow = document.getElementById(ROW_IDS.SLIDERS);
+        if (slidersRow) {
+            slidersRow.style.width = 'auto';
+            slidersRow.style.flex = '1 1 260px';
+            slidersRow.style.minWidth = '220px';
+            slidersRow.style.flexWrap = 'nowrap';
+            slidersRow.style.marginRight = '0';
+        }
+
+        // Practice row
+        var practiceRow = document.getElementById(ROW_IDS.PRACTICE);
+        if (practiceRow) {
+            practiceRow.style.width = 'auto';
+            practiceRow.style.flex = '0 1 auto';
+            practiceRow.style.minWidth = '0';
+            practiceRow.style.flexWrap = 'nowrap';
+            practiceRow.style.marginRight = '6px';
+        }
+
+        // Stems row
+        var stemsRow = document.getElementById(ROW_IDS.STEMS);
+        if (stemsRow) {
+            stemsRow.style.width = 'auto';
+            stemsRow.style.flex = '0 1 auto';
+            stemsRow.style.minWidth = '0';
+            stemsRow.style.flexWrap = 'nowrap';
+            stemsRow.style.marginRight = '6px';
+        }
+
+        // Features and Plugins: delegate to tools-row layout helper
+        applyExpandedLandscapeToolsRowsLayout();
+    }
+
+    function resetExpandedToolsRowLayout(row) {
+        if (!row) return;
+        row.style.width = '100%';
+        row.style.flex = '';
+        row.style.minWidth = '';
+        row.style.maxWidth = '';
+        row.style.flexWrap = '';
+        row.style.marginRight = '';
+        row.style.marginBottom = '6px';
+        row.style.overflowX = '';
+        row.style.overflowY = '';
+        row.style.touchAction = '';
+    }
+
+    function applyExpandedLandscapeToolsRowsLayout() {
+        var featuresRow = document.getElementById(ROW_IDS.FEATURES);
+        var pluginsRow = document.getElementById(ROW_IDS.PLUGINS);
+
+        if (!isLandscapeCompactControlsLayout()) {
+            resetExpandedToolsRowLayout(featuresRow);
+            resetExpandedToolsRowLayout(pluginsRow);
+            return;
+        }
+
+        var toolsOpen = isToolsOpen();
+
+        if (!toolsOpen) {
+            resetExpandedToolsRowLayout(featuresRow);
+            resetExpandedToolsRowLayout(pluginsRow);
+            return;
+        }
+
+        // FEATURES strip
+        if (featuresRow) {
+            featuresRow.style.width = 'auto';
+            featuresRow.style.flex = '0 1 auto';
+            featuresRow.style.minWidth = '0';
+            featuresRow.style.maxWidth = '100%';
+            featuresRow.style.flexWrap = 'nowrap';
+            featuresRow.style.marginRight = '6px';
+            featuresRow.style.marginBottom = '6px';
+            featuresRow.style.overflowX = 'visible';
+            featuresRow.style.overflowY = 'visible';
+            featuresRow.style.touchAction = '';
+        }
+
+        // PLUGINS strip
+        if (pluginsRow) {
+            pluginsRow.style.width = 'auto';
+            pluginsRow.style.flex = '1 1 260px';
+            pluginsRow.style.minWidth = '0';
+            pluginsRow.style.maxWidth = '100%';
+            pluginsRow.style.flexWrap = 'nowrap';
+            pluginsRow.style.marginRight = '0';
+            pluginsRow.style.marginBottom = '6px';
+            pluginsRow.style.overflowX = 'auto';
+            pluginsRow.style.overflowY = 'hidden';
+            pluginsRow.style.touchAction = 'pan-x';
+        }
+    }
+
+    function applyExpandedSectionHeaderLayout() {
+        var header = document.getElementById(SECTION_HEADER_IDS.PLUGINS);
+        if (!header) return;
+
+        if (isLandscapeCompactControlsLayout()) {
+            header.style.width = 'auto';
+            header.style.height = '36px';
+            header.style.minHeight = '36px';
+            header.style.flex = '0 0 auto';
+            header.style.marginBottom = '6px';
+        } else {
+            header.style.width = 'calc(100% - 52px)';
+            header.style.height = '44px';
+            header.style.minHeight = '44px';
+            header.style.flex = '';
+            header.style.marginBottom = '';
         }
     }
 
@@ -1210,6 +1525,55 @@
     // Collapsible Controls
     // ═══════════════════════════════════════════════════════════════
     
+    // ─────────────────────────────────────────────────────────────────
+    // Shared Slider Wrapper Helpers
+    // ─────────────────────────────────────────────────────────────────
+
+    function applyMobileSliderWrapperBaseStyles(wrapper) {
+        wrapper.style.display = 'inline-flex';
+        wrapper.style.flexDirection = 'column';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.gap = '2px';
+        wrapper.style.height = CFG.sliderWrapperHeight + 'px';
+        wrapper.style.justifyContent = 'flex-start';
+    }
+
+    function applyMobileSliderLabelRowStyles(row) {
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.justifyContent = 'center';
+        row.style.gap = '4px';
+        row.style.fontSize = CFG.sliderLabelFontSize + 'px';
+        row.style.lineHeight = '1';
+        row.style.paddingBottom = '5px';
+    }
+
+    function applyMobileSliderLabelTextStyles(el) {
+        el.style.fontSize = CFG.sliderLabelFontSize + 'px';
+        el.style.lineHeight = '1';
+        el.style.margin = '0';
+        el.style.padding = '0';
+        el.style.width = 'auto';
+    }
+
+    function createMobileSliderSeparator() {
+        var sep = document.createElement('span');
+        sep.textContent = '\u2022';
+        sep.style.opacity = '0.5';
+        return sep;
+    }
+
+    function applyMobileSliderInputBaseStyles(slider, options) {
+        options = options || {};
+        var includeMinWidth = options.includeMinWidth !== false;
+
+        slider.style.minHeight = 'auto';
+        slider.style.height = CFG.sliderTrackHeight + 'px';
+        if (includeMinWidth && CFG.sliderMinWidth > 0) {
+            slider.style.minWidth = CFG.sliderMinWidth + 'px';
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────
     // Main Enhancement
     // ─────────────────────────────────────────────────────────────────
@@ -1277,38 +1641,32 @@
         const speedLabel = document.getElementById('speed-label');
         if (speedSlider && speedLabel && speedSlider.parentElement === controls && speedLabel.parentElement === controls) {
             // Create wrapper container
-            const speedWrapper = document.createElement('div');
-            speedWrapper.id = WRAPPER_IDS.SPEED;  // Unique ID for later targeting
-            speedWrapper.style.display = 'inline-flex';
-            speedWrapper.style.flexDirection = 'column';
-            speedWrapper.style.alignItems = 'center';
-            speedWrapper.style.gap = '0';  // No gap between label and slider
-            speedWrapper.style.height = CFG.sliderWrapperHeight + 'px';
-            speedWrapper.style.justifyContent = 'flex-start';  // Align to top
-            
-            // Insert wrapper before the slider
+            var speedWrapper = document.createElement('div');
+            speedWrapper.id = WRAPPER_IDS.SPEED;
+            applyMobileSliderWrapperBaseStyles(speedWrapper);
+
+            // Create label row with static Speed label + separator + value
+            var speedLabelRow = document.createElement('div');
+            applyMobileSliderLabelRowStyles(speedLabelRow);
+
+            var speedStaticLabel = document.createElement('span');
+            speedStaticLabel.textContent = 'Speed';
+            speedStaticLabel.id = 'mobile-speed-static-label';
+            applyMobileSliderLabelTextStyles(speedStaticLabel);
+
+            // Apply label text styles to existing #speed-label (value element)
+            applyMobileSliderLabelTextStyles(speedLabel);
+
+            // Insert wrapper before the slider, build structure
             speedSlider.parentElement.insertBefore(speedWrapper, speedSlider);
-            
-            // Move label and slider into wrapper
-            speedWrapper.appendChild(speedLabel);
+            speedWrapper.appendChild(speedLabelRow);
+            speedLabelRow.appendChild(speedStaticLabel);
+            speedLabelRow.appendChild(createMobileSliderSeparator());
+            speedLabelRow.appendChild(speedLabel);
             speedWrapper.appendChild(speedSlider);
-            
-            // Adjust label styling
-            speedLabel.style.fontSize = CFG.sliderLabelFontSize + 'px';
-            speedLabel.style.lineHeight = '1';
-            speedLabel.style.marginTop = '0';  // Align to top of wrapper
-            speedLabel.style.marginBottom = '0';
-            speedLabel.style.paddingTop = '0';
-            speedLabel.style.paddingBottom = '5px';  // Gap between label and slider
-            speedLabel.style.textAlign = 'center';
-            speedLabel.style.width = 'auto';  // Override w-10 class
-            
-            // Adjust slider styling
-            speedSlider.style.minHeight = 'auto';
-            speedSlider.style.height = CFG.sliderTrackHeight + 'px';
-            if (CFG.sliderMinWidth > 0) {
-                speedSlider.style.minWidth = CFG.sliderMinWidth + 'px';
-            }
+
+            // Apply shared slider input styles
+            applyMobileSliderInputBaseStyles(speedSlider);
         }
         
         // Stack mastery/difficulty slider: label + value on same line, slider below
@@ -1321,24 +1679,13 @@
             masteryValue.parentElement === controls) {
             
             // Create column wrapper
-            const masteryWrapper = document.createElement('div');
+            var masteryWrapper = document.createElement('div');
             masteryWrapper.id = WRAPPER_IDS.MASTERY;
-            masteryWrapper.style.display = 'inline-flex';
-            masteryWrapper.style.flexDirection = 'column';
-            masteryWrapper.style.alignItems = 'center';
-            masteryWrapper.style.gap = '2px';
-            masteryWrapper.style.height = CFG.sliderWrapperHeight + 'px';
-            masteryWrapper.style.justifyContent = 'flex-start';
+            applyMobileSliderWrapperBaseStyles(masteryWrapper);
             
             // Create horizontal row for label + value
-            const masteryLabelRow = document.createElement('div');
-            masteryLabelRow.style.display = 'flex';
-            masteryLabelRow.style.alignItems = 'center';
-            masteryLabelRow.style.justifyContent = 'center';
-            masteryLabelRow.style.gap = '4px';
-            masteryLabelRow.style.fontSize = CFG.sliderLabelFontSize + 'px';
-            masteryLabelRow.style.lineHeight = '1';
-            masteryLabelRow.style.paddingBottom = '5px';
+            var masteryLabelRow = document.createElement('div');
+            applyMobileSliderLabelRowStyles(masteryLabelRow);
             
             // Insert wrapper before the label (label comes first in DOM)
             masteryLabel.parentElement.insertBefore(masteryWrapper, masteryLabel);
@@ -1346,37 +1693,17 @@
             // Move elements into structure
             masteryWrapper.appendChild(masteryLabelRow);
             masteryLabelRow.appendChild(masteryLabel);
-            
-            // Add separator
-            const masterySeparator = document.createElement('span');
-            masterySeparator.textContent = '•';
-            masterySeparator.style.opacity = '0.5';
-            masteryLabelRow.appendChild(masterySeparator);
-            
+            masteryLabelRow.appendChild(createMobileSliderSeparator());
             masteryLabelRow.appendChild(masteryValue);
             masteryWrapper.appendChild(masterySlider);
             
-            // Style label
+            // Style static and value labels
             masteryLabel.textContent = 'Difficulty';
-            masteryLabel.style.fontSize = CFG.sliderLabelFontSize + 'px';
-            masteryLabel.style.lineHeight = '1';
-            masteryLabel.style.margin = '0';
-            masteryLabel.style.padding = '0';
-            masteryLabel.style.width = 'auto';
-            
-            // Style value
-            masteryValue.style.fontSize = CFG.sliderLabelFontSize + 'px';
-            masteryValue.style.lineHeight = '1';
-            masteryValue.style.margin = '0';
-            masteryValue.style.padding = '0';
-            masteryValue.style.width = 'auto';
-            
-            // Adjust slider styling
-            masterySlider.style.minHeight = 'auto';
-            masterySlider.style.height = CFG.sliderTrackHeight + 'px';
-            if (CFG.sliderMinWidth > 0) {
-                masterySlider.style.minWidth = CFG.sliderMinWidth + 'px';
-            }
+            applyMobileSliderLabelTextStyles(masteryLabel);
+            applyMobileSliderLabelTextStyles(masteryValue);
+
+            // Apply shared slider input styles
+            applyMobileSliderInputBaseStyles(masterySlider);
         }
         
         // Stack A/V offset slider: label + value on same line, slider below
@@ -1389,24 +1716,13 @@
             avValue.parentElement === controls) {
             
             // Create column wrapper
-            const avWrapper = document.createElement('div');
-            avWrapper.id = WRAPPER_IDS.AV;  // Unique ID for later targeting
-            avWrapper.style.display = 'inline-flex';
-            avWrapper.style.flexDirection = 'column';
-            avWrapper.style.alignItems = 'center';
-            avWrapper.style.gap = '2px';
-            avWrapper.style.height = CFG.sliderWrapperHeight + 'px';
-            avWrapper.style.justifyContent = 'flex-start';
+            var avWrapper = document.createElement('div');
+            avWrapper.id = WRAPPER_IDS.AV;
+            applyMobileSliderWrapperBaseStyles(avWrapper);
             
             // Create horizontal row for label + value
-            const avLabelRow = document.createElement('div');
-            avLabelRow.style.display = 'flex';
-            avLabelRow.style.alignItems = 'center';
-            avLabelRow.style.justifyContent = 'center';
-            avLabelRow.style.gap = '4px';
-            avLabelRow.style.fontSize = CFG.sliderLabelFontSize + 'px';
-            avLabelRow.style.lineHeight = '1';
-            avLabelRow.style.paddingBottom = '5px';
+            var avLabelRow = document.createElement('div');
+            applyMobileSliderLabelRowStyles(avLabelRow);
             
             // Insert wrapper before the label (label comes first in DOM)
             avLabel.parentElement.insertBefore(avWrapper, avLabel);
@@ -1414,37 +1730,17 @@
             // Move elements into structure
             avWrapper.appendChild(avLabelRow);
             avLabelRow.appendChild(avLabel);
-            
-            // Add separator
-            const avSeparator = document.createElement('span');
-            avSeparator.textContent = '•';
-            avSeparator.style.opacity = '0.5';
-            avLabelRow.appendChild(avSeparator);
-            
+            avLabelRow.appendChild(createMobileSliderSeparator());
             avLabelRow.appendChild(avValue);
             avWrapper.appendChild(avSlider);
             
-            // Style label
+            // Style static and value labels
             avLabel.textContent = 'Offset';
-            avLabel.style.fontSize = CFG.sliderLabelFontSize + 'px';
-            avLabel.style.lineHeight = '1';
-            avLabel.style.margin = '0';
-            avLabel.style.padding = '0';
-            avLabel.style.width = 'auto';
-            
-            // Style value
-            avValue.style.fontSize = CFG.sliderLabelFontSize + 'px';
-            avValue.style.lineHeight = '1';
-            avValue.style.margin = '0';
-            avValue.style.padding = '0';
-            avValue.style.width = 'auto';
-            
-            // Adjust slider styling
-            avSlider.style.minHeight = 'auto';
-            avSlider.style.height = CFG.sliderTrackHeight + 'px';
-            if (CFG.sliderMinWidth > 0) {
-                avSlider.style.minWidth = CFG.sliderMinWidth + 'px';
-            }
+            applyMobileSliderLabelTextStyles(avLabel);
+            applyMobileSliderLabelTextStyles(avValue);
+
+            // Apply shared slider input styles
+            applyMobileSliderInputBaseStyles(avSlider);
         }
         
         // Hide all non-essential controls and set order for non-priority controls
@@ -1537,38 +1833,43 @@
         // Apply order and margins
         applyControlOrder();
         
-        // Re-set wrapper display (can get cleared on song change)
-        const masteryWrapper = document.getElementById(WRAPPER_IDS.MASTERY);
-        const speedWrapper = document.getElementById(WRAPPER_IDS.SPEED);
-        const avWrapper = document.getElementById(WRAPPER_IDS.AV);
+        // Re-set wrapper display and styles (can get cleared on song change)
+        var masteryWrapper = document.getElementById(WRAPPER_IDS.MASTERY);
+        var speedWrapper = document.getElementById(WRAPPER_IDS.SPEED);
+        var avWrapper = document.getElementById(WRAPPER_IDS.AV);
         
         if (masteryWrapper) {
-            masteryWrapper.style.display = 'inline-flex';
+            applyMobileSliderWrapperBaseStyles(masteryWrapper);
         }
         if (speedWrapper) {
-            speedWrapper.style.display = 'inline-flex';
+            applyMobileSliderWrapperBaseStyles(speedWrapper);
         }
         if (avWrapper) {
-            avWrapper.style.display = 'inline-flex';
+            applyMobileSliderWrapperBaseStyles(avWrapper);
         }
+
+        // Re-set label row styles
+        [masteryWrapper, speedWrapper, avWrapper].forEach(function(wrapper) {
+            if (!wrapper) return;
+            var labelRow = wrapper.querySelector('div');
+            if (labelRow) applyMobileSliderLabelRowStyles(labelRow);
+        });
         
         // Reset slider heights (they get overridden to 44px)
-        const speedSlider = document.getElementById('speed-slider');
-        const masterySlider = document.getElementById('mastery-slider');
-        const avSlider = document.getElementById('player-av-offset-slider');
+        var speedSlider = document.getElementById('speed-slider');
+        var masterySlider = document.getElementById('mastery-slider');
+        var avSlider = document.getElementById('player-av-offset-slider');
         
         if (speedSlider) {
-            speedSlider.style.minHeight = 'auto';
-            speedSlider.style.height = CFG.sliderTrackHeight + 'px';
+            applyMobileSliderInputBaseStyles(speedSlider, { includeMinWidth: false });
         }
         if (masterySlider) {
-            masterySlider.style.minHeight = 'auto';
-            masterySlider.style.height = CFG.sliderTrackHeight + 'px';
+            applyMobileSliderInputBaseStyles(masterySlider, { includeMinWidth: false });
         }
         if (avSlider) {
-            avSlider.style.minHeight = 'auto';
-            avSlider.style.height = CFG.sliderTrackHeight + 'px';
+            applyMobileSliderInputBaseStyles(avSlider, { includeMinWidth: false });
         }
+        applyExpandedSliderRowStyles();
         
         // Re-classify controls to fix visibility (the actual fix for missing sliders)
         reclassifyAllControls();
@@ -2976,6 +3277,7 @@
         }
 
         teardownSectionPracticeCollapse();
+        teardownMixerPopoverMobileClamp();
 
         // Restore all hidden controls
         document.querySelectorAll('.mobile-hide-advanced').forEach(el => {
@@ -2997,6 +3299,8 @@
                 // Restore original styles
                 speedLabel.style.fontSize = '';
                 speedLabel.style.lineHeight = '';
+                speedLabel.style.margin = '';
+                speedLabel.style.padding = '';
                 speedLabel.style.marginBottom = '';
                 speedLabel.style.paddingTop = '';
                 speedLabel.style.paddingBottom = '';
@@ -3047,6 +3351,8 @@
             
             if (screenId === 'player') {
                 scheduleEnhancement(enhancePlayerControls, 100);
+                scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
+                scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
                 scheduleEnhancement(ensureSectionPracticeCollapse, 200);
                 scheduleEnhancement(ensureSectionPracticeCollapse, 600);
                 // Section map might already exist or appear soon (200ms)
@@ -3111,6 +3417,8 @@
                 scheduleEnhancement(startHighway3dObserver, 600);
                 scheduleEnhancement(reclassifyAllControls, 150);
                 scheduleEnhancement(reclassifyAllControls, 500);
+                scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
+                scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
             };
         }
         
@@ -3161,6 +3469,8 @@
         const currentScreen = window.slopsmith.getCurrentScreen?.();
         if (currentScreen === 'player') {
             scheduleEnhancement(enhancePlayerControls, 100);
+            scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
+            scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
             scheduleEnhancement(ensureSectionPracticeCollapse, 200);
             scheduleEnhancement(ensureSectionPracticeCollapse, 600);
             scheduleEnhancement(enhanceSectionMap, 200);
