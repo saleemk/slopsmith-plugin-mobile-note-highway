@@ -51,6 +51,10 @@
         return hasTouch ? (window.innerWidth >= 600 ? 'tablet' : 'phone') : 'desktop';
     }
 
+    function detectOrientation() {
+        return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+    }
+
     /**
      * Per-device styling and behavior config.
      * Phone values exactly match the pre-refactor hardcoded numbers so phone
@@ -124,9 +128,28 @@
     };
     
     let DEVICE = detectDevice();
+    let ORIENTATION = detectOrientation();
     let CFG = CONFIG[DEVICE] || CONFIG.phone;
     let IS_TABLET = DEVICE === 'tablet';
-    
+    let IS_LANDSCAPE = ORIENTATION === 'landscape';
+    let IS_PORTRAIT = ORIENTATION === 'portrait';
+
+    function updateViewportState() {
+        var newDevice = detectDevice();
+        var newOrientation = detectOrientation();
+        var deviceChanged = newDevice !== DEVICE;
+        var orientationChanged = newOrientation !== ORIENTATION;
+
+        DEVICE = newDevice;
+        ORIENTATION = newOrientation;
+        CFG = CONFIG[DEVICE] || CONFIG.phone;
+        IS_TABLET = DEVICE === 'tablet';
+        IS_LANDSCAPE = ORIENTATION === 'landscape';
+        IS_PORTRAIT = ORIENTATION === 'portrait';
+
+        return { deviceChanged: deviceChanged, orientationChanged: orientationChanged };
+    }
+
     /**
      * Get current whoosh sound type from localStorage.
      * Configurable via Settings panel.
@@ -712,15 +735,12 @@
      * Re-detects device type and re-enhances if needed
      */
     function handleResize() {
-        const newDevice = detectDevice();
-        if (newDevice !== DEVICE) {
-            DEVICE = newDevice;
-            CFG = CONFIG[DEVICE] || CONFIG.phone;
-            IS_TABLET = DEVICE === 'tablet';
+        var viewportChanged = updateViewportState();
+
+        if (viewportChanged.deviceChanged) {
             updateMobileStyles();
-            
-            // Re-enhance if on player screen
-            const currentScreen = window.slopsmith?.getCurrentScreen?.();
+
+            var currentScreen = window.slopsmith && window.slopsmith.getCurrentScreen && window.slopsmith.getCurrentScreen();
             if (currentScreen === 'player') {
                 scheduleEnhancement(enhancePlayerControls, 100);
             }
@@ -847,6 +867,10 @@
         if (onclick && essentialOnclicks.some(fn => onclick.includes(fn))) return true;
         
         return false;
+    }
+
+    function isCollapsedVisibleControl(el) {
+        return isEssentialControl(el);
     }
     
     /**
