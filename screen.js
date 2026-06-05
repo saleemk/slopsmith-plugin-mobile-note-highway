@@ -2185,7 +2185,26 @@
         }, delay);
         _timers.pending.push(id);
     }
-    
+
+    function clearPendingEnhancements() {
+        _timers.pending.forEach(clearTimeout);
+        _timers.pending = [];
+    }
+
+    function schedulePlayerEntryEnhancements() {
+        scheduleEnhancement(enhancePlayerControls, 100);
+        scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
+        scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
+        scheduleEnhancement(ensureSectionPracticeCollapse, 200);
+        scheduleEnhancement(ensureSectionPracticeCollapse, 600);
+        scheduleEnhancement(enhanceSectionMap, 200);
+        scheduleEnhancement(adjustPlayerHud, 200);
+        scheduleEnhancement(enableHighwayGestures, 300);
+        scheduleEnhancement(enableControlsGestures, 150);
+        scheduleEnhancement(startHighway3dObserver, 500);
+        scheduleEnhancement(syncLoopMarkerState, 100);
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // Section Map Mobile Enhancement
     // ═══════════════════════════════════════════════════════════════
@@ -3282,8 +3301,7 @@
      */
     function cleanup() {
         // Cancel all pending timeouts
-        _timers.pending.forEach(clearTimeout);
-        _timers.pending = [];
+        clearPendingEnhancements();
         
         if (_timers.doubleTap) {
             clearTimeout(_timers.doubleTap);
@@ -3393,22 +3411,7 @@
             const screenId = e.detail.id || e.detail.screen;
             
             if (screenId === 'player') {
-                scheduleEnhancement(enhancePlayerControls, 100);
-                scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
-                scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
-                scheduleEnhancement(ensureSectionPracticeCollapse, 200);
-                scheduleEnhancement(ensureSectionPracticeCollapse, 600);
-                // Section map might already exist or appear soon (200ms)
-                scheduleEnhancement(enhanceSectionMap, 200);
-                // Adjust HUD position (200ms)
-                scheduleEnhancement(adjustPlayerHud, 200);
-                // Enable gesture controls (300ms)
-                scheduleEnhancement(enableHighwayGestures, 300);
-                // Enable controls swipe gestures (150ms - after controls are enhanced)
-                scheduleEnhancement(enableControlsGestures, 150);
-                // Start observing 3D highway overlay (500ms - needs more time to load)
-                scheduleEnhancement(startHighway3dObserver, 500);
-                scheduleEnhancement(syncLoopMarkerState, 100);
+                schedulePlayerEntryEnhancements();
             } else {
                 stopWhoosh();
                 cleanup();
@@ -3437,8 +3440,7 @@
         if (origPlaySong) {
             window.playSong = async function(filename, arrangement) {
                 // Cancel any pending enhancements from previous song
-                _timers.pending.forEach(clearTimeout);
-                _timers.pending = [];
+                clearPendingEnhancements();
                 
                 // Stop any active whoosh from previous song/scrubbing
                 stopWhoosh();
@@ -3511,17 +3513,7 @@
         
         const currentScreen = window.slopsmith.getCurrentScreen?.();
         if (currentScreen === 'player') {
-            scheduleEnhancement(enhancePlayerControls, 100);
-            scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
-            scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
-            scheduleEnhancement(ensureSectionPracticeCollapse, 200);
-            scheduleEnhancement(ensureSectionPracticeCollapse, 600);
-            scheduleEnhancement(enhanceSectionMap, 200);
-            scheduleEnhancement(adjustPlayerHud, 200);
-            scheduleEnhancement(enableHighwayGestures, 300);
-            scheduleEnhancement(enableControlsGestures, 150);
-            scheduleEnhancement(startHighway3dObserver, 500);
-            scheduleEnhancement(syncLoopMarkerState, 100);
+            schedulePlayerEntryEnhancements();
         }
     }
     
