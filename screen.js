@@ -1235,6 +1235,55 @@
     // ═══════════════════════════════════════════════════════════════
     
     // ─────────────────────────────────────────────────────────────────
+    // Shared Slider Wrapper Helpers
+    // ─────────────────────────────────────────────────────────────────
+
+    function applyMobileSliderWrapperBaseStyles(wrapper) {
+        wrapper.style.display = 'inline-flex';
+        wrapper.style.flexDirection = 'column';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.gap = '2px';
+        wrapper.style.height = CFG.sliderWrapperHeight + 'px';
+        wrapper.style.justifyContent = 'flex-start';
+    }
+
+    function applyMobileSliderLabelRowStyles(row) {
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.justifyContent = 'center';
+        row.style.gap = '4px';
+        row.style.fontSize = CFG.sliderLabelFontSize + 'px';
+        row.style.lineHeight = '1';
+        row.style.paddingBottom = '5px';
+    }
+
+    function applyMobileSliderLabelTextStyles(el) {
+        el.style.fontSize = CFG.sliderLabelFontSize + 'px';
+        el.style.lineHeight = '1';
+        el.style.margin = '0';
+        el.style.padding = '0';
+        el.style.width = 'auto';
+    }
+
+    function createMobileSliderSeparator() {
+        var sep = document.createElement('span');
+        sep.textContent = '\u2022';
+        sep.style.opacity = '0.5';
+        return sep;
+    }
+
+    function applyMobileSliderInputBaseStyles(slider, options) {
+        options = options || {};
+        var includeMinWidth = options.includeMinWidth !== false;
+
+        slider.style.minHeight = 'auto';
+        slider.style.height = CFG.sliderTrackHeight + 'px';
+        if (includeMinWidth && CFG.sliderMinWidth > 0) {
+            slider.style.minWidth = CFG.sliderMinWidth + 'px';
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
     // Main Enhancement
     // ─────────────────────────────────────────────────────────────────
     
@@ -1301,38 +1350,32 @@
         const speedLabel = document.getElementById('speed-label');
         if (speedSlider && speedLabel && speedSlider.parentElement === controls && speedLabel.parentElement === controls) {
             // Create wrapper container
-            const speedWrapper = document.createElement('div');
-            speedWrapper.id = WRAPPER_IDS.SPEED;  // Unique ID for later targeting
-            speedWrapper.style.display = 'inline-flex';
-            speedWrapper.style.flexDirection = 'column';
-            speedWrapper.style.alignItems = 'center';
-            speedWrapper.style.gap = '0';  // No gap between label and slider
-            speedWrapper.style.height = CFG.sliderWrapperHeight + 'px';
-            speedWrapper.style.justifyContent = 'flex-start';  // Align to top
-            
-            // Insert wrapper before the slider
+            var speedWrapper = document.createElement('div');
+            speedWrapper.id = WRAPPER_IDS.SPEED;
+            applyMobileSliderWrapperBaseStyles(speedWrapper);
+
+            // Create label row with static Speed label + separator + value
+            var speedLabelRow = document.createElement('div');
+            applyMobileSliderLabelRowStyles(speedLabelRow);
+
+            var speedStaticLabel = document.createElement('span');
+            speedStaticLabel.textContent = 'Speed';
+            speedStaticLabel.id = 'mobile-speed-static-label';
+            applyMobileSliderLabelTextStyles(speedStaticLabel);
+
+            // Apply label text styles to existing #speed-label (value element)
+            applyMobileSliderLabelTextStyles(speedLabel);
+
+            // Insert wrapper before the slider, build structure
             speedSlider.parentElement.insertBefore(speedWrapper, speedSlider);
-            
-            // Move label and slider into wrapper
-            speedWrapper.appendChild(speedLabel);
+            speedWrapper.appendChild(speedLabelRow);
+            speedLabelRow.appendChild(speedStaticLabel);
+            speedLabelRow.appendChild(createMobileSliderSeparator());
+            speedLabelRow.appendChild(speedLabel);
             speedWrapper.appendChild(speedSlider);
-            
-            // Adjust label styling
-            speedLabel.style.fontSize = CFG.sliderLabelFontSize + 'px';
-            speedLabel.style.lineHeight = '1';
-            speedLabel.style.marginTop = '0';  // Align to top of wrapper
-            speedLabel.style.marginBottom = '0';
-            speedLabel.style.paddingTop = '0';
-            speedLabel.style.paddingBottom = '5px';  // Gap between label and slider
-            speedLabel.style.textAlign = 'center';
-            speedLabel.style.width = 'auto';  // Override w-10 class
-            
-            // Adjust slider styling
-            speedSlider.style.minHeight = 'auto';
-            speedSlider.style.height = CFG.sliderTrackHeight + 'px';
-            if (CFG.sliderMinWidth > 0) {
-                speedSlider.style.minWidth = CFG.sliderMinWidth + 'px';
-            }
+
+            // Apply shared slider input styles
+            applyMobileSliderInputBaseStyles(speedSlider);
         }
         
         // Stack mastery/difficulty slider: label + value on same line, slider below
@@ -1345,24 +1388,13 @@
             masteryValue.parentElement === controls) {
             
             // Create column wrapper
-            const masteryWrapper = document.createElement('div');
+            var masteryWrapper = document.createElement('div');
             masteryWrapper.id = WRAPPER_IDS.MASTERY;
-            masteryWrapper.style.display = 'inline-flex';
-            masteryWrapper.style.flexDirection = 'column';
-            masteryWrapper.style.alignItems = 'center';
-            masteryWrapper.style.gap = '2px';
-            masteryWrapper.style.height = CFG.sliderWrapperHeight + 'px';
-            masteryWrapper.style.justifyContent = 'flex-start';
+            applyMobileSliderWrapperBaseStyles(masteryWrapper);
             
             // Create horizontal row for label + value
-            const masteryLabelRow = document.createElement('div');
-            masteryLabelRow.style.display = 'flex';
-            masteryLabelRow.style.alignItems = 'center';
-            masteryLabelRow.style.justifyContent = 'center';
-            masteryLabelRow.style.gap = '4px';
-            masteryLabelRow.style.fontSize = CFG.sliderLabelFontSize + 'px';
-            masteryLabelRow.style.lineHeight = '1';
-            masteryLabelRow.style.paddingBottom = '5px';
+            var masteryLabelRow = document.createElement('div');
+            applyMobileSliderLabelRowStyles(masteryLabelRow);
             
             // Insert wrapper before the label (label comes first in DOM)
             masteryLabel.parentElement.insertBefore(masteryWrapper, masteryLabel);
@@ -1370,37 +1402,17 @@
             // Move elements into structure
             masteryWrapper.appendChild(masteryLabelRow);
             masteryLabelRow.appendChild(masteryLabel);
-            
-            // Add separator
-            const masterySeparator = document.createElement('span');
-            masterySeparator.textContent = '•';
-            masterySeparator.style.opacity = '0.5';
-            masteryLabelRow.appendChild(masterySeparator);
-            
+            masteryLabelRow.appendChild(createMobileSliderSeparator());
             masteryLabelRow.appendChild(masteryValue);
             masteryWrapper.appendChild(masterySlider);
             
-            // Style label
+            // Style static and value labels
             masteryLabel.textContent = 'Difficulty';
-            masteryLabel.style.fontSize = CFG.sliderLabelFontSize + 'px';
-            masteryLabel.style.lineHeight = '1';
-            masteryLabel.style.margin = '0';
-            masteryLabel.style.padding = '0';
-            masteryLabel.style.width = 'auto';
-            
-            // Style value
-            masteryValue.style.fontSize = CFG.sliderLabelFontSize + 'px';
-            masteryValue.style.lineHeight = '1';
-            masteryValue.style.margin = '0';
-            masteryValue.style.padding = '0';
-            masteryValue.style.width = 'auto';
-            
-            // Adjust slider styling
-            masterySlider.style.minHeight = 'auto';
-            masterySlider.style.height = CFG.sliderTrackHeight + 'px';
-            if (CFG.sliderMinWidth > 0) {
-                masterySlider.style.minWidth = CFG.sliderMinWidth + 'px';
-            }
+            applyMobileSliderLabelTextStyles(masteryLabel);
+            applyMobileSliderLabelTextStyles(masteryValue);
+
+            // Apply shared slider input styles
+            applyMobileSliderInputBaseStyles(masterySlider);
         }
         
         // Stack A/V offset slider: label + value on same line, slider below
@@ -1413,24 +1425,13 @@
             avValue.parentElement === controls) {
             
             // Create column wrapper
-            const avWrapper = document.createElement('div');
-            avWrapper.id = WRAPPER_IDS.AV;  // Unique ID for later targeting
-            avWrapper.style.display = 'inline-flex';
-            avWrapper.style.flexDirection = 'column';
-            avWrapper.style.alignItems = 'center';
-            avWrapper.style.gap = '2px';
-            avWrapper.style.height = CFG.sliderWrapperHeight + 'px';
-            avWrapper.style.justifyContent = 'flex-start';
+            var avWrapper = document.createElement('div');
+            avWrapper.id = WRAPPER_IDS.AV;
+            applyMobileSliderWrapperBaseStyles(avWrapper);
             
             // Create horizontal row for label + value
-            const avLabelRow = document.createElement('div');
-            avLabelRow.style.display = 'flex';
-            avLabelRow.style.alignItems = 'center';
-            avLabelRow.style.justifyContent = 'center';
-            avLabelRow.style.gap = '4px';
-            avLabelRow.style.fontSize = CFG.sliderLabelFontSize + 'px';
-            avLabelRow.style.lineHeight = '1';
-            avLabelRow.style.paddingBottom = '5px';
+            var avLabelRow = document.createElement('div');
+            applyMobileSliderLabelRowStyles(avLabelRow);
             
             // Insert wrapper before the label (label comes first in DOM)
             avLabel.parentElement.insertBefore(avWrapper, avLabel);
@@ -1438,37 +1439,17 @@
             // Move elements into structure
             avWrapper.appendChild(avLabelRow);
             avLabelRow.appendChild(avLabel);
-            
-            // Add separator
-            const avSeparator = document.createElement('span');
-            avSeparator.textContent = '•';
-            avSeparator.style.opacity = '0.5';
-            avLabelRow.appendChild(avSeparator);
-            
+            avLabelRow.appendChild(createMobileSliderSeparator());
             avLabelRow.appendChild(avValue);
             avWrapper.appendChild(avSlider);
             
-            // Style label
+            // Style static and value labels
             avLabel.textContent = 'Offset';
-            avLabel.style.fontSize = CFG.sliderLabelFontSize + 'px';
-            avLabel.style.lineHeight = '1';
-            avLabel.style.margin = '0';
-            avLabel.style.padding = '0';
-            avLabel.style.width = 'auto';
-            
-            // Style value
-            avValue.style.fontSize = CFG.sliderLabelFontSize + 'px';
-            avValue.style.lineHeight = '1';
-            avValue.style.margin = '0';
-            avValue.style.padding = '0';
-            avValue.style.width = 'auto';
-            
-            // Adjust slider styling
-            avSlider.style.minHeight = 'auto';
-            avSlider.style.height = CFG.sliderTrackHeight + 'px';
-            if (CFG.sliderMinWidth > 0) {
-                avSlider.style.minWidth = CFG.sliderMinWidth + 'px';
-            }
+            applyMobileSliderLabelTextStyles(avLabel);
+            applyMobileSliderLabelTextStyles(avValue);
+
+            // Apply shared slider input styles
+            applyMobileSliderInputBaseStyles(avSlider);
         }
         
         // Hide all non-essential controls and set order for non-priority controls
@@ -1561,38 +1542,43 @@
         // Apply order and margins
         applyControlOrder();
         
-        // Re-set wrapper display (can get cleared on song change)
-        const masteryWrapper = document.getElementById(WRAPPER_IDS.MASTERY);
-        const speedWrapper = document.getElementById(WRAPPER_IDS.SPEED);
-        const avWrapper = document.getElementById(WRAPPER_IDS.AV);
+        // Re-set wrapper display and styles (can get cleared on song change)
+        var masteryWrapper = document.getElementById(WRAPPER_IDS.MASTERY);
+        var speedWrapper = document.getElementById(WRAPPER_IDS.SPEED);
+        var avWrapper = document.getElementById(WRAPPER_IDS.AV);
         
         if (masteryWrapper) {
-            masteryWrapper.style.display = 'inline-flex';
+            applyMobileSliderWrapperBaseStyles(masteryWrapper);
         }
         if (speedWrapper) {
-            speedWrapper.style.display = 'inline-flex';
+            applyMobileSliderWrapperBaseStyles(speedWrapper);
         }
         if (avWrapper) {
-            avWrapper.style.display = 'inline-flex';
+            applyMobileSliderWrapperBaseStyles(avWrapper);
         }
+
+        // Re-set label row styles
+        [masteryWrapper, speedWrapper, avWrapper].forEach(function(wrapper) {
+            if (!wrapper) return;
+            var labelRow = wrapper.querySelector('div');
+            if (labelRow) applyMobileSliderLabelRowStyles(labelRow);
+        });
         
         // Reset slider heights (they get overridden to 44px)
-        const speedSlider = document.getElementById('speed-slider');
-        const masterySlider = document.getElementById('mastery-slider');
-        const avSlider = document.getElementById('player-av-offset-slider');
+        var speedSlider = document.getElementById('speed-slider');
+        var masterySlider = document.getElementById('mastery-slider');
+        var avSlider = document.getElementById('player-av-offset-slider');
         
         if (speedSlider) {
-            speedSlider.style.minHeight = 'auto';
-            speedSlider.style.height = CFG.sliderTrackHeight + 'px';
+            applyMobileSliderInputBaseStyles(speedSlider, { includeMinWidth: false });
         }
         if (masterySlider) {
-            masterySlider.style.minHeight = 'auto';
-            masterySlider.style.height = CFG.sliderTrackHeight + 'px';
+            applyMobileSliderInputBaseStyles(masterySlider, { includeMinWidth: false });
         }
         if (avSlider) {
-            avSlider.style.minHeight = 'auto';
-            avSlider.style.height = CFG.sliderTrackHeight + 'px';
+            applyMobileSliderInputBaseStyles(avSlider, { includeMinWidth: false });
         }
+        applyExpandedSliderRowStyles();
         
         // Re-classify controls to fix visibility (the actual fix for missing sliders)
         reclassifyAllControls();
@@ -3021,6 +3007,8 @@
                 // Restore original styles
                 speedLabel.style.fontSize = '';
                 speedLabel.style.lineHeight = '';
+                speedLabel.style.margin = '';
+                speedLabel.style.padding = '';
                 speedLabel.style.marginBottom = '';
                 speedLabel.style.paddingTop = '';
                 speedLabel.style.paddingBottom = '';
