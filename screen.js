@@ -1130,6 +1130,17 @@
         if (el.id === 'mastery-slider' || el.id === 'speed-slider' || el.id === 'player-av-offset-slider') return ROW_IDS.SLIDERS;
         if (el.id === WRAPPER_IDS.MASTERY || el.id === WRAPPER_IDS.SPEED || el.id === WRAPPER_IDS.AV) return ROW_IDS.SLIDERS;
 
+        // --- Stems: stem mixer container ---
+        if (isStemsControl(el)) {
+            if (_currentSongHasStems) {
+                el.classList.remove('mobile-hidden');
+                el.classList.remove('mobile-hide-advanced');
+                return ROW_IDS.STEMS;
+            }
+            hideStaleStemsControl(el);
+            return null;
+        }
+
         // --- Features: mixer, lyrics, simplify, HD, 3D ---
         if (el.id === 'btn-lyrics' || el.id === 'quality-select' || el.id === 'viz-picker') return ROW_IDS.FEATURES;
         var txt = (el.textContent || '').toLowerCase().trim();
@@ -1151,13 +1162,6 @@
         // --- Practice: loop A/B/save, detect, step, tuner ---
         if (onclick && (onclick.indexOf('setLoopStart') !== -1 || onclick.indexOf('setLoopEnd') !== -1 || onclick.indexOf('clearLoop') !== -1)) return ROW_IDS.PRACTICE;
         if (txt && /detect|step|tuner/i.test(txt)) return ROW_IDS.PRACTICE;
-
-        // --- Stems: stem mixer container ---
-        if (isStemsControl(el)) {
-            if (_currentSongHasStems) return ROW_IDS.STEMS;
-            hideStaleStemsControl(el);
-            return null;
-        }
 
         // --- Everything else ---
         return ROW_IDS.PLUGINS;
