@@ -812,16 +812,9 @@
     // ═══════════════════════════════════════════════════════════════
     // CSS Classes Injection
     // ═══════════════════════════════════════════════════════════════
-    
-    /**
-     * Inject CSS classes for mobile note highway to avoid inline style thrashing
-     */
-    function injectMobileStyles() {
-        if (document.getElementById('mobile-ui-styles')) return;
-        
-        const style = document.createElement('style');
-        style.id = 'mobile-ui-styles';
-        style.textContent = `
+
+    function buildMobileStylesCss() {
+        return `
             /* Mobile Note Highway Plugin Styles */
             .mobile-button {
                 height: ${CFG.buttonHeight}px !important;
@@ -848,6 +841,17 @@
                 50% { transform: translateY(-4px); }
             }
         `;
+    }
+
+    /**
+     * Inject CSS classes for mobile note highway to avoid inline style thrashing
+     */
+    function injectMobileStyles() {
+        if (document.getElementById('mobile-ui-styles')) return;
+
+        var style = document.createElement('style');
+        style.id = 'mobile-ui-styles';
+        style.textContent = buildMobileStylesCss();
         document.head.appendChild(style);
     }
     
@@ -855,36 +859,10 @@
      * Update CSS variables when device type changes
      */
     function updateMobileStyles() {
-        const style = document.getElementById('mobile-ui-styles');
+        var style = document.getElementById('mobile-ui-styles');
         if (!style) return;
         
-        style.textContent = `
-            /* Mobile Note Highway Plugin Styles */
-            .mobile-button {
-                height: ${CFG.buttonHeight}px !important;
-                min-width: ${CFG.buttonHeight}px !important;
-                padding: 0 ${CFG.buttonPaddingX}px !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-            }
-            /* Higher specificity: must come AFTER .mobile-button to override */
-            .mobile-button.mobile-hidden { display: none !important; }
-            .mobile-hidden { display: none !important; }
-            
-            /* Back button (relocated close button) - icon-only, white triangle */
-            #mobile-back-btn .mobile-back-svg {
-                width: ${IS_TABLET ? 16 : 14}px;
-                height: ${IS_TABLET ? 16 : 14}px;
-                display: block;
-            }
-            
-            /* Chevron bounce animation */
-            @keyframes chevronBounce {
-                0%, 100% { transform: translateY(0); }
-                50% { transform: translateY(-4px); }
-            }
-        `;
+        style.textContent = buildMobileStylesCss();
     }
 
     // ═══════════════════════════════════════════════════════════════
