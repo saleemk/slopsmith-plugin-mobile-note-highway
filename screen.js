@@ -2211,6 +2211,27 @@
         scheduleEnhancement(syncLoopMarkerState, 100);
     }
 
+    // Post-playSong timing passes. Keep delays/order in sync with tested song-switch
+    // behavior: immediate loop state sync, early control/order refresh, upstream UI
+    // refreshes, gesture/observer rebinds, reclassification, and Mixer clamp setup.
+    function schedulePostPlaySongEnhancements() {
+        syncLoopMarkerState();
+
+        scheduleEnhancement(initWhoosh, 100);
+        scheduleEnhancement(reapplyControlOrder, 50);
+        scheduleEnhancement(ensureSectionPracticeCollapse, 150);
+        scheduleEnhancement(ensureSectionPracticeCollapse, 600);
+        scheduleEnhancement(enhanceSectionMap, 300);
+        scheduleEnhancement(adjustPlayerHud, 300);
+        scheduleEnhancement(enableHighwayGestures, 400);
+        scheduleEnhancement(enableControlsGestures, 150);
+        scheduleEnhancement(startHighway3dObserver, 600);
+        scheduleEnhancement(reclassifyAllControls, 150);
+        scheduleEnhancement(reclassifyAllControls, 500);
+        scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
+        scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // Section Map Mobile Enhancement
     // ═══════════════════════════════════════════════════════════════
@@ -3454,22 +3475,8 @@
                 _currentSongHasStems = false;
 
                 await origPlaySong(filename, arrangement);
-                
-                syncLoopMarkerState();
-                
-                scheduleEnhancement(initWhoosh, 100);
-                scheduleEnhancement(reapplyControlOrder, 50);
-                scheduleEnhancement(ensureSectionPracticeCollapse, 150);
-                scheduleEnhancement(ensureSectionPracticeCollapse, 600);
-                scheduleEnhancement(enhanceSectionMap, 300);
-                scheduleEnhancement(adjustPlayerHud, 300);
-                scheduleEnhancement(enableHighwayGestures, 400);
-                scheduleEnhancement(enableControlsGestures, 150);
-                scheduleEnhancement(startHighway3dObserver, 600);
-                scheduleEnhancement(reclassifyAllControls, 150);
-                scheduleEnhancement(reclassifyAllControls, 500);
-                scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
-                scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
+
+                schedulePostPlaySongEnhancements();
             };
         }
         
