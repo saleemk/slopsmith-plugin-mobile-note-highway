@@ -898,7 +898,9 @@
      * - orientationChanged collapses expanded controls on player screen
      *   (portrait/landscape switch forces controls back to collapsed).
      * - Both device and orientation changes schedule a reclassification
-     *   refresh to reapply row wrapper layout.
+     *   refresh to reapply the current collapsed/expanded control state
+     *   after viewport changes. On orientation change, expanded controls
+     *   collapse first, so the refresh is mainly collapsed-state cleanup.
      */
     function handleResize() {
         var viewportChanged = updateViewportState();
@@ -2191,6 +2193,10 @@
         _timers.pending = [];
     }
 
+    // Shared player-entry/startup timing passes. Keep delays/order in sync with
+    // tested startup behavior: early controls enhancement, mid-pass upstream and
+    // plugin UI hooks (Mixer, Section Practice, section map, HUD, gestures), and
+    // a later pass for the 3D highway overlay.
     function schedulePlayerEntryEnhancements() {
         scheduleEnhancement(enhancePlayerControls, 100);
         scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
