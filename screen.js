@@ -1580,6 +1580,13 @@
         el.style.width = 'auto';
     }
 
+    function applyMobileSliderLabelTextStylesById(ids) {
+        ids.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) applyMobileSliderLabelTextStyles(el);
+        });
+    }
+
     function createMobileSliderSeparator() {
         var sep = document.createElement('span');
         sep.textContent = '\u2022';
@@ -1676,6 +1683,7 @@
             var speedStaticLabel = document.createElement('span');
             speedStaticLabel.textContent = 'Speed';
             speedStaticLabel.id = 'mobile-speed-static-label';
+            speedStaticLabel.className = 'text-xs text-gray-500 ml-1';
             applyMobileSliderLabelTextStyles(speedStaticLabel);
 
             // Apply label text styles to existing #speed-label (value element)
@@ -1878,6 +1886,15 @@
             var labelRow = wrapper.querySelector('div');
             if (labelRow) applyMobileSliderLabelRowStyles(labelRow);
         });
+
+        applyMobileSliderLabelTextStylesById([
+            'mastery-slider-label',
+            'mastery-label',
+            'mobile-speed-static-label',
+            'speed-label',
+            'player-av-offset-slider-label',
+            'player-av-offset-label'
+        ]);
         
         // Reset slider heights (they get overridden to 44px)
         var speedSlider = document.getElementById('speed-slider');
@@ -3361,6 +3378,69 @@
         _ui.expanded = false;
     }
 
+    function resetMobileSliderLabelStyles(el) {
+        if (!el) return;
+        el.style.fontSize = '';
+        el.style.lineHeight = '';
+        el.style.fontWeight = '';
+        el.style.margin = '';
+        el.style.padding = '';
+        el.style.marginBottom = '';
+        el.style.paddingTop = '';
+        el.style.paddingBottom = '';
+        el.style.textAlign = '';
+        el.style.width = '';
+    }
+
+    function resetMobileSliderInputStyles(el) {
+        if (!el) return;
+        el.style.minHeight = '';
+        el.style.height = '';
+        el.style.minWidth = '';
+        el.style.width = '';
+    }
+
+    function restoreMobileSliderWrapper(controls, wrapperId, orderedElementIds) {
+        var wrapper = document.getElementById(wrapperId);
+        if (!controls || !wrapper || wrapper.parentElement !== controls) return;
+
+        orderedElementIds.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (!el || !wrapper.contains(el)) return;
+
+            controls.insertBefore(el, wrapper);
+
+            if (el.tagName === 'INPUT') {
+                resetMobileSliderInputStyles(el);
+            } else {
+                resetMobileSliderLabelStyles(el);
+            }
+        });
+
+        wrapper.remove();
+    }
+
+    function restoreMobileSliderWrappers(controls) {
+        restoreMobileSliderWrapper(controls, WRAPPER_IDS.MASTERY, [
+            'mastery-slider-label',
+            'mastery-label',
+            'mastery-slider'
+        ]);
+
+        // Preserve current tested Speed cleanup final order.
+        // Existing Speed-only cleanup inserted speed-slider before speed-label.
+        restoreMobileSliderWrapper(controls, WRAPPER_IDS.SPEED, [
+            'speed-slider',
+            'speed-label'
+        ]);
+
+        restoreMobileSliderWrapper(controls, WRAPPER_IDS.AV, [
+            'player-av-offset-slider-label',
+            'player-av-offset-label',
+            'player-av-offset-slider'
+        ]);
+    }
+
     /**
      * Remove Mobile Note Highway enhancements
      */
@@ -3381,30 +3461,7 @@
         teardownMixerPopoverMobileClamp();
 
         restoreMobileControlVisibility();
-
-        // Unwrap speed slider/label if wrapped
-        var speedSlider = document.getElementById('speed-slider');
-        var speedLabel = document.getElementById('speed-label');
-        if (speedSlider && speedLabel && speedSlider.parentElement && speedSlider.parentElement !== controls) {
-            var wrapper = speedSlider.parentElement;
-            if (controls && wrapper.parentElement === controls) {
-                controls.insertBefore(speedSlider, wrapper);
-                controls.insertBefore(speedLabel, wrapper);
-                wrapper.remove();
-                speedLabel.style.fontSize = '';
-                speedLabel.style.lineHeight = '';
-                speedLabel.style.margin = '';
-                speedLabel.style.padding = '';
-                speedLabel.style.marginBottom = '';
-                speedLabel.style.paddingTop = '';
-                speedLabel.style.paddingBottom = '';
-                speedLabel.style.textAlign = '';
-                speedLabel.style.fontWeight = '';
-                speedLabel.style.width = '';
-                speedSlider.style.minHeight = '';
-                speedSlider.style.height = '';
-            }
-        }
+        restoreMobileSliderWrappers(controls);
 
         restoreMobileTouchTargets(controls);
         resetMobileUiState();
