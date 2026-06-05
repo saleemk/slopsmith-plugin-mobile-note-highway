@@ -227,6 +227,7 @@
 
     let _sectionPracticeOpen = false;
     let _sectionPracticeObserver = null;
+    let _mixerClampClickHandler = null;
     
     // Highway gesture state (scrubbing, taps, loop markers)
     const _highway = {
@@ -276,6 +277,7 @@
         playerHud: null,           // was _playerHudOriginalStyles
         highway3dOverlay: null,    // was _highway3dOverlayOriginalStyles
         sectionPractice: null,
+        mixerPopover: null,
     };
     
     // Timers (for cleanup on song change / screen exit)
@@ -569,6 +571,125 @@
         }
         _restore.sectionPractice = null;
         _sectionPracticeOpen = false;
+    }
+
+    // ── Mixer Popover Viewport Clamp ──
+
+    function findMixerPopover() {
+        return document.getElementById('mixer-popover');
+    }
+
+    function isMixerPopoverOpen(popover) {
+        return !!(popover && popover.isConnected && !popover.classList.contains('hidden'));
+    }
+
+    function storeMixerPopoverOriginalStyles(popover) {
+        if (_restore.mixerPopover) return;
+        _restore.mixerPopover = {
+            left: popover.style.left,
+            right: popover.style.right,
+            top: popover.style.top,
+            bottom: popover.style.bottom,
+            transform: popover.style.transform,
+            maxWidth: popover.style.maxWidth,
+            maxHeight: popover.style.maxHeight,
+            overflowX: popover.style.overflowX,
+            overflowY: popover.style.overflowY
+        };
+    }
+
+    function setStyleIfChanged(el, prop, value) {
+        if (el.style[prop] !== value) {
+            el.style[prop] = value;
+        }
+    }
+
+    function clearMixerPopoverViewportClamp() {
+        var popover = findMixerPopover();
+        if (!popover || !_restore.mixerPopover) return;
+        var orig = _restore.mixerPopover;
+        popover.style.left = orig.left;
+        popover.style.right = orig.right;
+        popover.style.top = orig.top;
+        popover.style.bottom = orig.bottom;
+        popover.style.transform = orig.transform;
+        popover.style.maxWidth = orig.maxWidth;
+        popover.style.maxHeight = orig.maxHeight;
+        popover.style.overflowX = orig.overflowX;
+        popover.style.overflowY = orig.overflowY;
+        _restore.mixerPopover = null;
+    }
+
+    function applyMixerPopoverViewportClamp() {
+        var popover = findMixerPopover();
+        if (!popover) return;
+
+        if (!isMixerPopoverOpen(popover)) {
+            if (_restore.mixerPopover) {
+                clearMixerPopoverViewportClamp();
+            }
+            return;
+        }
+
+        storeMixerPopoverOriginalStyles(popover);
+
+        // Temporarily restore original transform to avoid compounding translateX()
+        var origTransform = _restore.mixerPopover.transform || '';
+        popover.style.transform = origTransform;
+
+        var pad = 8;
+        setStyleIfChanged(popover, 'maxWidth', 'calc(100vw - ' + (pad * 2) + 'px)');
+        setStyleIfChanged(popover, 'maxHeight', 'calc(100vh - ' + (pad * 2) + 'px)');
+        setStyleIfChanged(popover, 'overflowX', 'auto');
+        setStyleIfChanged(popover, 'overflowY', 'auto');
+
+        var rect = popover.getBoundingClientRect();
+        var dx = 0;
+        if (rect.left < pad) {
+            dx = pad - rect.left;
+        } else if (rect.right > window.innerWidth - pad) {
+            dx = (window.innerWidth - pad) - rect.right;
+        }
+
+        if (dx !== 0) {
+            setStyleIfChanged(popover, 'transform', 'translateX(' + dx + 'px)');
+        } else if (origTransform) {
+            setStyleIfChanged(popover, 'transform', origTransform);
+        } else {
+            popover.style.transform = '';
+        }
+    }
+
+    function scheduleMixerPopoverClamp() {
+        setTimeout(applyMixerPopoverViewportClamp, 0);
+        requestAnimationFrame(applyMixerPopoverViewportClamp);
+        setTimeout(applyMixerPopoverViewportClamp, 100);
+    }
+
+    function setupMixerPopoverMobileClamp() {
+        var btnMixer = document.getElementById('btn-mixer');
+        if (!btnMixer) return;
+
+        if (!_mixerClampClickHandler) {
+            _mixerClampClickHandler = function() {
+                scheduleMixerPopoverClamp();
+            };
+        }
+
+        btnMixer.removeEventListener('click', _mixerClampClickHandler);
+        btnMixer.addEventListener('click', _mixerClampClickHandler);
+
+        // In case mixer is already open
+        scheduleMixerPopoverClamp();
+    }
+
+    function teardownMixerPopoverMobileClamp() {
+        var btnMixer = document.getElementById('btn-mixer');
+        if (btnMixer && _mixerClampClickHandler) {
+            btnMixer.removeEventListener('click', _mixerClampClickHandler);
+        }
+        _mixerClampClickHandler = null;
+        clearMixerPopoverViewportClamp();
     }
     
     // ═══════════════════════════════════════════════════════════════
@@ -2986,6 +3107,7 @@
         }
 
         teardownSectionPracticeCollapse();
+        teardownMixerPopoverMobileClamp();
 
         // Restore all hidden controls
         document.querySelectorAll('.mobile-hide-advanced').forEach(el => {
@@ -3059,6 +3181,8 @@
             
             if (screenId === 'player') {
                 scheduleEnhancement(enhancePlayerControls, 100);
+                scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
+                scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
                 scheduleEnhancement(ensureSectionPracticeCollapse, 200);
                 scheduleEnhancement(ensureSectionPracticeCollapse, 600);
                 // Section map might already exist or appear soon (200ms)
@@ -3123,6 +3247,8 @@
                 scheduleEnhancement(startHighway3dObserver, 600);
                 scheduleEnhancement(reclassifyAllControls, 150);
                 scheduleEnhancement(reclassifyAllControls, 500);
+                scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
+                scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
             };
         }
         
@@ -3173,6 +3299,8 @@
         const currentScreen = window.slopsmith.getCurrentScreen?.();
         if (currentScreen === 'player') {
             scheduleEnhancement(enhancePlayerControls, 100);
+            scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
+            scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
             scheduleEnhancement(ensureSectionPracticeCollapse, 200);
             scheduleEnhancement(ensureSectionPracticeCollapse, 600);
             scheduleEnhancement(enhanceSectionMap, 200);
