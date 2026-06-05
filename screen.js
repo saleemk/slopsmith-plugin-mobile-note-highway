@@ -1574,6 +1574,7 @@
     function applyMobileSliderLabelTextStyles(el) {
         el.style.fontSize = CFG.sliderLabelFontSize + 'px';
         el.style.lineHeight = '1';
+        el.style.fontWeight = '400';
         el.style.margin = '0';
         el.style.padding = '0';
         el.style.width = 'auto';
@@ -3398,6 +3399,7 @@
                 speedLabel.style.paddingTop = '';
                 speedLabel.style.paddingBottom = '';
                 speedLabel.style.textAlign = '';
+                speedLabel.style.fontWeight = '';
                 speedLabel.style.width = '';
                 speedSlider.style.minHeight = '';
                 speedSlider.style.height = '';
