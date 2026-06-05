@@ -201,6 +201,9 @@
     const _expandedSectionState = {
         tools: false,
     };
+
+    let _sectionPracticeOpen = false;
+    let _sectionPracticeObserver = null;
     
     // Highway gesture state (scrubbing, taps, loop markers)
     const _highway = {
@@ -249,6 +252,7 @@
         sectionMap: null,          // was _sectionMapOriginalStyles
         playerHud: null,           // was _playerHudOriginalStyles
         highway3dOverlay: null,    // was _highway3dOverlayOriginalStyles
+        sectionPractice: null,
     };
     
     // Timers (for cleanup on song change / screen exit)
@@ -293,6 +297,7 @@
     const HELPER_IDS = {
         SWIPE_INDICATOR: 'mobile-swipe-indicator',
         END_SPACER: 'mobile-end-spacer',
+        SECTION_PRACTICE_HEADER: 'mnh-section-practice-header',
     };
 
     const HELPER_CLASSES = {
@@ -321,6 +326,7 @@
         const id = element?.id;
         return id === HELPER_IDS.SWIPE_INDICATOR ||
                id === HELPER_IDS.END_SPACER ||
+               id === HELPER_IDS.SECTION_PRACTICE_HEADER ||
                isSectionHeaderElement(element);
     }
 
@@ -395,6 +401,151 @@
             });
             controls.insertBefore(header, pluginsRow);
         }
+    }
+
+    function findSectionPracticeBar() {
+        var bar = document.getElementById('section-practice-bar');
+        if (!bar) return null;
+        return bar.closest && bar.closest('#player-footer') ? bar : null;
+    }
+
+    function isSectionPracticeAvailable(bar) {
+        return !!(
+            bar &&
+            bar.nodeType === Node.ELEMENT_NODE &&
+            !bar.classList.contains('section-practice-bar--hidden')
+        );
+    }
+
+    function removeSectionPracticeHeader() {
+        var header = document.getElementById(HELPER_IDS.SECTION_PRACTICE_HEADER);
+        if (header) header.remove();
+    }
+
+    function ensureSectionPracticeCollapse() {
+        var bar = findSectionPracticeBar();
+        if (!bar) {
+            stopSectionPracticeObserver();
+            removeSectionPracticeHeader();
+            return;
+        }
+
+        if (!_restore.sectionPractice) {
+            _restore.sectionPractice = {
+                display: bar.style.display,
+            };
+        }
+
+        var parent = bar.parentElement;
+        if (!parent || parent.id !== 'player-footer') return;
+
+        var header = document.getElementById(HELPER_IDS.SECTION_PRACTICE_HEADER);
+        if (!header) {
+            header = document.createElement('button');
+            header.id = HELPER_IDS.SECTION_PRACTICE_HEADER;
+            header.type = 'button';
+            header.setAttribute('aria-controls', 'section-practice-bar');
+            header.style.cssText = [
+                'display:inline-flex',
+                'align-items:center',
+                'justify-content:flex-start',
+                'width:calc(100% - 16px)',
+                'height:30px',
+                'min-height:30px',
+                'margin:0 8px 4px',
+                'padding:0 10px',
+                'border:1px solid rgba(75,85,99,0.22)',
+                'border-radius:6px',
+                'background:rgba(17,24,39,0.24)',
+                'color:#cbd5e1',
+                'font-size:12px',
+                'font-weight:600',
+                'text-align:left'
+            ].join(';') + ';';
+            header.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                _sectionPracticeOpen = !_sectionPracticeOpen;
+                applySectionPracticeVisibility();
+            });
+        }
+
+        if (header.parentElement !== parent || header.nextElementSibling !== bar) {
+            parent.insertBefore(header, bar);
+        }
+
+        startSectionPracticeObserver(bar);
+        applySectionPracticeVisibility();
+    }
+
+    function applySectionPracticeVisibility() {
+        var bar = findSectionPracticeBar();
+        var header = document.getElementById(HELPER_IDS.SECTION_PRACTICE_HEADER);
+        if (!bar) {
+            stopSectionPracticeObserver();
+            removeSectionPracticeHeader();
+            return;
+        }
+        if (!header) return;
+
+        if (!isSectionPracticeAvailable(bar)) {
+            _sectionPracticeOpen = false;
+            if (header.style.display !== 'none') header.style.display = 'none';
+            return;
+        }
+
+        var desiredHeaderDisplay = 'inline-flex';
+        if (header.style.display !== desiredHeaderDisplay) {
+            header.style.display = desiredHeaderDisplay;
+        }
+        header.textContent = 'Section Practice ' + (_sectionPracticeOpen ? '\u25B4' : '\u25BE');
+        header.setAttribute('aria-expanded', _sectionPracticeOpen ? 'true' : 'false');
+
+        if (_sectionPracticeOpen) {
+            if (bar.style.getPropertyPriority('display') === 'important') {
+                bar.style.removeProperty('display');
+            }
+            var restoredDisplay = _restore.sectionPractice && _restore.sectionPractice.display;
+            var openDisplay = restoredDisplay && restoredDisplay !== 'none' ? restoredDisplay : 'flex';
+            if (bar.style.display !== openDisplay) bar.style.display = openDisplay;
+        } else if (
+            bar.style.display !== 'none' ||
+            bar.style.getPropertyPriority('display') !== 'important'
+        ) {
+            bar.style.setProperty('display', 'none', 'important');
+        }
+    }
+
+    function startSectionPracticeObserver(bar) {
+        stopSectionPracticeObserver();
+        if (!bar) return;
+
+        _sectionPracticeObserver = new MutationObserver(function() {
+            applySectionPracticeVisibility();
+        });
+        _sectionPracticeObserver.observe(bar, {
+            attributes: true,
+            attributeFilter: ['class', 'style'],
+        });
+    }
+
+    function stopSectionPracticeObserver() {
+        if (_sectionPracticeObserver) {
+            _sectionPracticeObserver.disconnect();
+            _sectionPracticeObserver = null;
+        }
+    }
+
+    function teardownSectionPracticeCollapse() {
+        var bar = findSectionPracticeBar();
+        stopSectionPracticeObserver();
+        removeSectionPracticeHeader();
+        if (bar && _restore.sectionPractice) {
+            bar.style.removeProperty('display');
+            bar.style.display = _restore.sectionPractice.display;
+        }
+        _restore.sectionPractice = null;
+        _sectionPracticeOpen = false;
     }
     
     // ═══════════════════════════════════════════════════════════════
@@ -2824,6 +2975,8 @@
             }
         }
 
+        teardownSectionPracticeCollapse();
+
         // Restore all hidden controls
         document.querySelectorAll('.mobile-hide-advanced').forEach(el => {
             el.classList.remove('mobile-hide-advanced');
@@ -2894,6 +3047,8 @@
             
             if (screenId === 'player') {
                 scheduleEnhancement(enhancePlayerControls, 100);
+                scheduleEnhancement(ensureSectionPracticeCollapse, 200);
+                scheduleEnhancement(ensureSectionPracticeCollapse, 600);
                 // Section map might already exist or appear soon (200ms)
                 scheduleEnhancement(enhanceSectionMap, 200);
                 // Adjust HUD position (200ms)
@@ -2921,6 +3076,8 @@
         window.slopsmith.on('song:loaded', function() {
             updateCurrentSongStemState();
             if (window.slopsmith && window.slopsmith.getCurrentScreen && window.slopsmith.getCurrentScreen() === 'player') {
+                scheduleEnhancement(ensureSectionPracticeCollapse, 100);
+                scheduleEnhancement(ensureSectionPracticeCollapse, 400);
                 scheduleEnhancement(reclassifyAllControls, 50);
                 scheduleEnhancement(reclassifyAllControls, 250);
             }
@@ -2945,6 +3102,8 @@
                 
                 scheduleEnhancement(initWhoosh, 100);
                 scheduleEnhancement(reapplyControlOrder, 50);
+                scheduleEnhancement(ensureSectionPracticeCollapse, 150);
+                scheduleEnhancement(ensureSectionPracticeCollapse, 600);
                 scheduleEnhancement(enhanceSectionMap, 300);
                 scheduleEnhancement(adjustPlayerHud, 300);
                 scheduleEnhancement(enableHighwayGestures, 400);
@@ -3002,6 +3161,8 @@
         const currentScreen = window.slopsmith.getCurrentScreen?.();
         if (currentScreen === 'player') {
             scheduleEnhancement(enhancePlayerControls, 100);
+            scheduleEnhancement(ensureSectionPracticeCollapse, 200);
+            scheduleEnhancement(ensureSectionPracticeCollapse, 600);
             scheduleEnhancement(enhanceSectionMap, 200);
             scheduleEnhancement(adjustPlayerHud, 200);
             scheduleEnhancement(enableHighwayGestures, 300);
