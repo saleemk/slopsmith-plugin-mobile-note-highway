@@ -3322,69 +3322,96 @@
     // ═══════════════════════════════════════════════════════════════
     // Lifecycle
     // ═══════════════════════════════════════════════════════════════
-    
-    /**
-     * Remove Mobile Note Highway enhancements
-     */
-    function cleanup() {
-        // Cancel all pending timeouts
-        clearPendingEnhancements();
-        
+
+    function clearInteractionTimers() {
         if (_timers.doubleTap) {
             clearTimeout(_timers.doubleTap);
             _timers.doubleTap = null;
         }
-        
-        // Stop observing
-        stopControlsObserver();
+    }
 
-        // Tear down expanded section rows before restoring mobile controls
-        const controls = document.getElementById('player-controls');
-        if (controls) {
-            teardownExpandedControlRows(controls);
-        }
-
-        // Remove swipe indicator
+    function removeSwipeIndicator() {
         if (_ui.swipeIndicator && _ui.swipeIndicator.parentElement) {
             _ui.swipeIndicator.remove();
             _ui.swipeIndicator = null;
         }
-        
-        // Restore close button to original state and clear positioning
-        if (controls) {
-            const backBtn = controls.querySelector('#mobile-back-btn') || Array.from(controls.querySelectorAll('button')).find(btn => {
-                const onclick = btn.getAttribute('onclick');
-                return onclick && onclick.includes("showScreen('home')");
-            });
-            if (backBtn) {
-                restoreCloseButton(backBtn);
-                backBtn.style.order = '';
-                backBtn.style.marginLeft = '';
-                backBtn.style.marginRight = '';
-            }
+    }
+
+    function restoreMobileBackButton(controls) {
+        if (!controls) return;
+        var backBtn = controls.querySelector('#mobile-back-btn') || Array.from(controls.querySelectorAll('button')).find(function(btn) {
+            var onclick = btn.getAttribute('onclick');
+            return onclick && onclick.indexOf("showScreen('home')") !== -1;
+        });
+        if (backBtn) {
+            restoreCloseButton(backBtn);
+            backBtn.style.order = '';
+            backBtn.style.marginLeft = '';
+            backBtn.style.marginRight = '';
         }
+    }
+
+    function restoreMobileControlVisibility() {
+        document.querySelectorAll('.mobile-hide-advanced').forEach(function(el) {
+            el.classList.remove('mobile-hide-advanced');
+            el.style.display = '';
+        });
+    }
+
+    function restoreMobileTouchTargets(controls) {
+        if (!controls) return;
+
+        Array.from(controls.querySelectorAll('button')).forEach(function(btn) {
+            btn.style.minHeight = '';
+            btn.style.minWidth = '';
+            btn.style.padding = '';
+        });
+
+        Array.from(controls.querySelectorAll('.seek-label')).forEach(function(label) {
+            label.style.display = '';
+        });
+
+        Array.from(controls.querySelectorAll('input[type="range"]')).forEach(function(slider) {
+            slider.style.minHeight = '';
+        });
+    }
+
+    function resetMobileUiState() {
+        applyExpandedSliderRowStyles(false);
+        _expandedSectionState.tools = false;
+        _ui.expanded = false;
+    }
+
+    /**
+     * Remove Mobile Note Highway enhancements
+     */
+    function cleanup() {
+        clearPendingEnhancements();
+        clearInteractionTimers();
+        stopControlsObserver();
+
+        var controls = document.getElementById('player-controls');
+        if (controls) {
+            teardownExpandedControlRows(controls);
+        }
+
+        removeSwipeIndicator();
+        restoreMobileBackButton(controls);
 
         teardownSectionPracticeCollapse();
         teardownMixerPopoverMobileClamp();
 
-        // Restore all hidden controls
-        document.querySelectorAll('.mobile-hide-advanced').forEach(el => {
-            el.classList.remove('mobile-hide-advanced');
-            el.style.display = '';
-        });
-        
+        restoreMobileControlVisibility();
+
         // Unwrap speed slider/label if wrapped
-        const speedSlider = document.getElementById('speed-slider');
-        const speedLabel = document.getElementById('speed-label');
+        var speedSlider = document.getElementById('speed-slider');
+        var speedLabel = document.getElementById('speed-label');
         if (speedSlider && speedLabel && speedSlider.parentElement && speedSlider.parentElement !== controls) {
-            const wrapper = speedSlider.parentElement;
+            var wrapper = speedSlider.parentElement;
             if (controls && wrapper.parentElement === controls) {
-                // Move elements back to controls
                 controls.insertBefore(speedSlider, wrapper);
                 controls.insertBefore(speedLabel, wrapper);
-                // Remove wrapper
                 wrapper.remove();
-                // Restore original styles
                 speedLabel.style.fontSize = '';
                 speedLabel.style.lineHeight = '';
                 speedLabel.style.margin = '';
@@ -3398,28 +3425,9 @@
                 speedSlider.style.height = '';
             }
         }
-        
-        // Reset touch target sizes
-        if (controls) {
-            Array.from(controls.querySelectorAll('button')).forEach(btn => {
-                btn.style.minHeight = '';
-                btn.style.minWidth = '';
-                btn.style.padding = '';
-            });
-            
-            // Restore seek button labels
-            Array.from(controls.querySelectorAll('.seek-label')).forEach(label => {
-                label.style.display = '';
-            });
-            
-            Array.from(controls.querySelectorAll('input[type="range"]')).forEach(slider => {
-                slider.style.minHeight = '';
-            });
-        }
-        
-        applyExpandedSliderRowStyles(false);
-        _expandedSectionState.tools = false;
-        _ui.expanded = false;
+
+        restoreMobileTouchTargets(controls);
+        resetMobileUiState();
     }
     
     /**
