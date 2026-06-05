@@ -13,7 +13,7 @@
      */
     
     // ═══════════════════════════════════════════════════════════════
-    // Device Detection
+    // Viewport Detection & Config
     // ═══════════════════════════════════════════════════════════════
     
     /**
@@ -343,6 +343,8 @@
         PLUGINS: 'mnh-section-header-plugins',
     };
     
+    // ── Wrapper / Helper Element Detection ──
+
     /**
      * Check if element is inside one of our wrapper divs
      * (wrappers fully own their children - skip observer processing)
@@ -380,6 +382,8 @@
             )
         );
     }
+
+    // ── Expanded More Controls Header ──
 
     function isToolsOpen() {
         return !!_expandedSectionState.tools;
@@ -444,6 +448,11 @@
         }
         applyExpandedSectionHeaderLayout();
     }
+
+    // ── Upstream Section Practice Collapse ──
+    // Section Practice is upstream-owned, lives above #player-controls inside
+    // #player-footer, and MNH collapses it in place. It is not part of ROW_IDS
+    // or More controls. Do not move or redesign its internal layout.
 
     function findSectionPracticeBar() {
         var bar = document.getElementById('section-practice-bar');
@@ -590,7 +599,10 @@
         _sectionPracticeOpen = false;
     }
 
-    // ── Mixer Popover Viewport Clamp ──
+    // ── Upstream Mixer Popover Clamp ──
+    // Mixer is upstream-owned. MNH does not move or rewrite the mixer; it only
+    // applies temporary viewport-safe inline positioning while the popover is
+    // open and restores original inline styles on teardown. No MutationObserver.
 
     function findMixerPopover() {
         return document.getElementById('mixer-popover');
@@ -997,6 +1009,14 @@
     // Essential Control Detection
     // ═══════════════════════════════════════════════════════════════
     
+    // ─────────────────────────────────────────────────────────────────
+    // Collapsed Visibility (isEssentialControl / hideControl)
+    // ─────────────────────────────────────────────────────────────────
+    // Legacy name: isEssentialControl controls collapsed visibility only.
+    // Expanded organization is handled separately by ROW_IDS and
+    // classifyControlForExpandedRow(). isCollapsedVisibleControl() is
+    // an alias available for future migration; call sites not yet migrated.
+
     /**
      * Check if an element should remain visible (not hidden in Tools)
      * @param {HTMLElement} el - Element to check
