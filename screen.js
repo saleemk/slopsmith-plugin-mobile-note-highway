@@ -236,6 +236,8 @@
     let _sectionPracticeOpen = false;
     let _sectionPracticeObserver = null;
     let _mixerClampClickHandler = null;
+    var _mixerClampTimers = [];
+    var _mixerClampRaf = null;
     
     // Highway gesture state (scrubbing, taps, loop markers)
     const _highway = {
@@ -346,10 +348,15 @@
      * (wrappers fully own their children - skip observer processing)
      */
     function isInsideWrapper(element) {
-        const parentId = element?.parentElement?.id;
-        return parentId === WRAPPER_IDS.MASTERY ||
-               parentId === WRAPPER_IDS.SPEED ||
-               parentId === WRAPPER_IDS.AV;
+        return !!(
+            element &&
+            element.closest &&
+            (
+                element.closest('#' + WRAPPER_IDS.MASTERY) ||
+                element.closest('#' + WRAPPER_IDS.SPEED) ||
+                element.closest('#' + WRAPPER_IDS.AV)
+            )
+        );
     }
     
     /**
@@ -670,10 +677,20 @@
         }
     }
 
+    function clearScheduledMixerPopoverClamps() {
+        _mixerClampTimers.forEach(clearTimeout);
+        _mixerClampTimers = [];
+        if (_mixerClampRaf !== null) {
+            cancelAnimationFrame(_mixerClampRaf);
+            _mixerClampRaf = null;
+        }
+    }
+
     function scheduleMixerPopoverClamp() {
-        setTimeout(applyMixerPopoverViewportClamp, 0);
-        requestAnimationFrame(applyMixerPopoverViewportClamp);
-        setTimeout(applyMixerPopoverViewportClamp, 100);
+        clearScheduledMixerPopoverClamps();
+        _mixerClampTimers.push(setTimeout(applyMixerPopoverViewportClamp, 0));
+        _mixerClampRaf = requestAnimationFrame(applyMixerPopoverViewportClamp);
+        _mixerClampTimers.push(setTimeout(applyMixerPopoverViewportClamp, 100));
     }
 
     function setupMixerPopoverMobileClamp() {
@@ -694,6 +711,7 @@
     }
 
     function teardownMixerPopoverMobileClamp() {
+        clearScheduledMixerPopoverClamps();
         var btnMixer = document.getElementById('btn-mixer');
         if (btnMixer && _mixerClampClickHandler) {
             btnMixer.removeEventListener('click', _mixerClampClickHandler);
@@ -862,8 +880,13 @@
     // ═══════════════════════════════════════════════════════════════
     
     /**
-     * Handle viewport resize (orientation change, browser resize)
-     * Re-detects device type and re-enhances if needed
+     * Handle viewport resize (orientation change, browser resize).
+     * Device and orientation are tracked separately:
+     * - deviceChanged updates mobile CSS sizing and re-enhances controls.
+     * - orientationChanged collapses expanded controls on player screen
+     *   (portrait/landscape switch forces controls back to collapsed).
+     * - Both device and orientation changes schedule a reclassification
+     *   refresh to reapply row wrapper layout.
      */
     function handleResize() {
         var viewportChanged = updateViewportState();
