@@ -197,6 +197,14 @@
         return DEVICE === 'phone' || DEVICE === 'tablet';
     }
 
+    function getCurrentScreenId() {
+        if (window.slopsmith && typeof window.slopsmith.getCurrentScreen === 'function') {
+            return window.slopsmith.getCurrentScreen();
+        }
+        var activeScreen = document.querySelector('.screen.active');
+        return activeScreen ? activeScreen.id : null;
+    }
+
     /**
      * Get whether the plugin itself is enabled.
      * @returns {boolean}
@@ -426,6 +434,7 @@
             });
             controls.insertBefore(header, pluginsRow);
         }
+        applyExpandedSectionHeaderLayout();
     }
 
     function findSectionPracticeBar() {
@@ -858,13 +867,22 @@
     function handleResize() {
         var viewportChanged = updateViewportState();
 
+        var currentScreen = getCurrentScreenId();
+
         if (viewportChanged.deviceChanged) {
             updateMobileStyles();
+        }
 
-            var currentScreen = window.slopsmith && window.slopsmith.getCurrentScreen && window.slopsmith.getCurrentScreen();
-            if (currentScreen === 'player') {
-                scheduleEnhancement(enhancePlayerControls, 100);
-            }
+        if (currentScreen === 'player' && viewportChanged.orientationChanged && _ui.expanded) {
+            toggleAdvancedControls(false);
+        }
+
+        if (currentScreen === 'player' && (viewportChanged.deviceChanged || viewportChanged.orientationChanged)) {
+            scheduleEnhancement(reclassifyAllControls, 100);
+        }
+
+        if (viewportChanged.deviceChanged && currentScreen === 'player') {
+            scheduleEnhancement(enhancePlayerControls, 100);
         }
     }
     
@@ -1269,6 +1287,15 @@
     }
 
     function applyExpandedRowWrapperLayout() {
+        if (isLandscapeCompactControlsLayout()) {
+            applyExpandedLandscapeRowWrapperLayout();
+        } else {
+            applyExpandedPortraitRowWrapperLayout();
+        }
+        applyExpandedSectionHeaderLayout();
+    }
+
+    function applyExpandedPortraitRowWrapperLayout() {
         var playbackRow = document.getElementById(ROW_IDS.PLAYBACK);
         var slidersRow = document.getElementById(ROW_IDS.SLIDERS);
 
@@ -1300,6 +1327,102 @@
                 slidersRow.style.minWidth = '0';
                 slidersRow.style.flexWrap = 'nowrap';
             }
+        }
+    }
+
+    function isLandscapeCompactControlsLayout() {
+        return _ui.expanded && IS_LANDSCAPE && isMobile();
+    }
+
+    function applyExpandedLandscapeRowWrapperLayout() {
+        var rowIds = [ROW_IDS.PLAYBACK, ROW_IDS.SLIDERS, ROW_IDS.PRACTICE, ROW_IDS.STEMS, ROW_IDS.FEATURES, ROW_IDS.PLUGINS];
+
+        // Reset all rows to baseline first
+        rowIds.forEach(function(id) {
+            var row = document.getElementById(id);
+            if (!row) return;
+            row.style.width = '100%';
+            row.style.flex = '';
+            row.style.minWidth = '';
+            row.style.flexWrap = '';
+            row.style.marginRight = '';
+        });
+
+        // Playback row
+        var playbackRow = document.getElementById(ROW_IDS.PLAYBACK);
+        if (playbackRow) {
+            playbackRow.style.width = 'auto';
+            playbackRow.style.flex = '0 1 auto';
+            playbackRow.style.minWidth = '0';
+            playbackRow.style.flexWrap = 'nowrap';
+            playbackRow.style.marginRight = '6px';
+        }
+
+        // Sliders row
+        var slidersRow = document.getElementById(ROW_IDS.SLIDERS);
+        if (slidersRow) {
+            slidersRow.style.width = 'auto';
+            slidersRow.style.flex = '1 1 260px';
+            slidersRow.style.minWidth = '220px';
+            slidersRow.style.flexWrap = 'nowrap';
+            slidersRow.style.marginRight = '0';
+        }
+
+        // Practice row
+        var practiceRow = document.getElementById(ROW_IDS.PRACTICE);
+        if (practiceRow) {
+            practiceRow.style.width = 'auto';
+            practiceRow.style.flex = '0 1 auto';
+            practiceRow.style.minWidth = '0';
+            practiceRow.style.flexWrap = 'nowrap';
+            practiceRow.style.marginRight = '6px';
+        }
+
+        // Stems row
+        var stemsRow = document.getElementById(ROW_IDS.STEMS);
+        if (stemsRow) {
+            stemsRow.style.width = 'auto';
+            stemsRow.style.flex = '0 1 auto';
+            stemsRow.style.minWidth = '0';
+            stemsRow.style.flexWrap = 'nowrap';
+            stemsRow.style.marginRight = '6px';
+        }
+
+        // Features and Plugins: reset to baseline (content redesign is L4B)
+        var featuresRow = document.getElementById(ROW_IDS.FEATURES);
+        if (featuresRow) {
+            featuresRow.style.width = '100%';
+            featuresRow.style.flex = '';
+            featuresRow.style.minWidth = '';
+            featuresRow.style.flexWrap = '';
+            featuresRow.style.marginRight = '';
+        }
+        var pluginsRow = document.getElementById(ROW_IDS.PLUGINS);
+        if (pluginsRow) {
+            pluginsRow.style.width = '100%';
+            pluginsRow.style.flex = '';
+            pluginsRow.style.minWidth = '';
+            pluginsRow.style.flexWrap = '';
+            pluginsRow.style.marginRight = '';
+        }
+    }
+
+    function applyExpandedSectionHeaderLayout() {
+        var header = document.getElementById(SECTION_HEADER_IDS.PLUGINS);
+        if (!header) return;
+
+        if (isLandscapeCompactControlsLayout()) {
+            header.style.width = 'auto';
+            header.style.height = '36px';
+            header.style.minHeight = '36px';
+            header.style.flex = '0 0 auto';
+            header.style.marginBottom = '6px';
+        } else {
+            header.style.width = 'calc(100% - 52px)';
+            header.style.height = '44px';
+            header.style.minHeight = '44px';
+            header.style.flex = '';
+            header.style.marginBottom = '';
         }
     }
 
