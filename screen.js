@@ -13,7 +13,7 @@
      */
     
     // ═══════════════════════════════════════════════════════════════
-    // Device Detection
+    // Viewport Detection & Config
     // ═══════════════════════════════════════════════════════════════
     
     /**
@@ -236,6 +236,8 @@
     let _sectionPracticeOpen = false;
     let _sectionPracticeObserver = null;
     let _mixerClampClickHandler = null;
+    var _mixerClampTimers = [];
+    var _mixerClampRaf = null;
     
     // Highway gesture state (scrubbing, taps, loop markers)
     const _highway = {
@@ -298,8 +300,11 @@
     // Observers (managed by createManagedObserver)
     let _controlsObserver = null;
     let _sectionMapObserver = null;
+    let _sectionMapLiveUpdateHandlers = null;
     let _highway3dObserver = null;
     let _highway3dAdjusted = false;
+    let _highwayGesturesTarget = null;
+    let _controlsGesturesTarget = null;
     
     // Expanded section row placement tracking
     const _expandedControlPlacement = new WeakMap();
@@ -341,15 +346,22 @@
         PLUGINS: 'mnh-section-header-plugins',
     };
     
+    // ── Wrapper / Helper Element Detection ──
+
     /**
      * Check if element is inside one of our wrapper divs
      * (wrappers fully own their children - skip observer processing)
      */
     function isInsideWrapper(element) {
-        const parentId = element?.parentElement?.id;
-        return parentId === WRAPPER_IDS.MASTERY ||
-               parentId === WRAPPER_IDS.SPEED ||
-               parentId === WRAPPER_IDS.AV;
+        return !!(
+            element &&
+            element.closest &&
+            (
+                element.closest('#' + WRAPPER_IDS.MASTERY) ||
+                element.closest('#' + WRAPPER_IDS.SPEED) ||
+                element.closest('#' + WRAPPER_IDS.AV)
+            )
+        );
     }
     
     /**
@@ -373,6 +385,8 @@
             )
         );
     }
+
+    // ── Expanded More Controls Header ──
 
     function isToolsOpen() {
         return !!_expandedSectionState.tools;
@@ -437,6 +451,11 @@
         }
         applyExpandedSectionHeaderLayout();
     }
+
+    // ── Upstream Section Practice Collapse ──
+    // Section Practice is upstream-owned, lives above #player-controls inside
+    // #player-footer, and MNH collapses it in place. It is not part of ROW_IDS
+    // or More controls. Do not move or redesign its internal layout.
 
     function findSectionPracticeBar() {
         var bar = document.getElementById('section-practice-bar');
@@ -583,7 +602,10 @@
         _sectionPracticeOpen = false;
     }
 
-    // ── Mixer Popover Viewport Clamp ──
+    // ── Upstream Mixer Popover Clamp ──
+    // Mixer is upstream-owned. MNH does not move or rewrite the mixer; it only
+    // applies temporary viewport-safe inline positioning while the popover is
+    // open and restores original inline styles on teardown. No MutationObserver.
 
     function findMixerPopover() {
         return document.getElementById('mixer-popover');
@@ -670,10 +692,20 @@
         }
     }
 
+    function clearScheduledMixerPopoverClamps() {
+        _mixerClampTimers.forEach(clearTimeout);
+        _mixerClampTimers = [];
+        if (_mixerClampRaf !== null) {
+            cancelAnimationFrame(_mixerClampRaf);
+            _mixerClampRaf = null;
+        }
+    }
+
     function scheduleMixerPopoverClamp() {
-        setTimeout(applyMixerPopoverViewportClamp, 0);
-        requestAnimationFrame(applyMixerPopoverViewportClamp);
-        setTimeout(applyMixerPopoverViewportClamp, 100);
+        clearScheduledMixerPopoverClamps();
+        _mixerClampTimers.push(setTimeout(applyMixerPopoverViewportClamp, 0));
+        _mixerClampRaf = requestAnimationFrame(applyMixerPopoverViewportClamp);
+        _mixerClampTimers.push(setTimeout(applyMixerPopoverViewportClamp, 100));
     }
 
     function setupMixerPopoverMobileClamp() {
@@ -694,6 +726,7 @@
     }
 
     function teardownMixerPopoverMobileClamp() {
+        clearScheduledMixerPopoverClamps();
         var btnMixer = document.getElementById('btn-mixer');
         if (btnMixer && _mixerClampClickHandler) {
             btnMixer.removeEventListener('click', _mixerClampClickHandler);
@@ -782,53 +815,9 @@
     // ═══════════════════════════════════════════════════════════════
     // CSS Classes Injection
     // ═══════════════════════════════════════════════════════════════
-    
-    /**
-     * Inject CSS classes for mobile note highway to avoid inline style thrashing
-     */
-    function injectMobileStyles() {
-        if (document.getElementById('mobile-ui-styles')) return;
-        
-        const style = document.createElement('style');
-        style.id = 'mobile-ui-styles';
-        style.textContent = `
-            /* Mobile Note Highway Plugin Styles */
-            .mobile-button {
-                height: ${CFG.buttonHeight}px !important;
-                min-width: ${CFG.buttonHeight}px !important;
-                padding: 0 ${CFG.buttonPaddingX}px !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-            }
-            /* Higher specificity: must come AFTER .mobile-button to override */
-            .mobile-button.mobile-hidden { display: none !important; }
-            .mobile-hidden { display: none !important; }
-            
-            /* Back button (relocated close button) - icon-only, white triangle */
-            #mobile-back-btn .mobile-back-svg {
-                width: ${IS_TABLET ? 16 : 14}px;
-                height: ${IS_TABLET ? 16 : 14}px;
-                display: block;
-            }
-            
-            /* Chevron bounce animation */
-            @keyframes chevronBounce {
-                0%, 100% { transform: translateY(0); }
-                50% { transform: translateY(-4px); }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-    
-    /**
-     * Update CSS variables when device type changes
-     */
-    function updateMobileStyles() {
-        const style = document.getElementById('mobile-ui-styles');
-        if (!style) return;
-        
-        style.textContent = `
+
+    function buildMobileStylesCss() {
+        return `
             /* Mobile Note Highway Plugin Styles */
             .mobile-button {
                 height: ${CFG.buttonHeight}px !important;
@@ -857,13 +846,42 @@
         `;
     }
 
+    /**
+     * Inject CSS classes for mobile note highway to avoid inline style thrashing
+     */
+    function injectMobileStyles() {
+        if (document.getElementById('mobile-ui-styles')) return;
+
+        var style = document.createElement('style');
+        style.id = 'mobile-ui-styles';
+        style.textContent = buildMobileStylesCss();
+        document.head.appendChild(style);
+    }
+    
+    /**
+     * Update CSS variables when device type changes
+     */
+    function updateMobileStyles() {
+        var style = document.getElementById('mobile-ui-styles');
+        if (!style) return;
+        
+        style.textContent = buildMobileStylesCss();
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // Device Resize Handling
     // ═══════════════════════════════════════════════════════════════
     
     /**
-     * Handle viewport resize (orientation change, browser resize)
-     * Re-detects device type and re-enhances if needed
+     * Handle viewport resize (orientation change, browser resize).
+     * Device and orientation are tracked separately:
+     * - deviceChanged updates mobile CSS sizing and re-enhances controls.
+     * - orientationChanged collapses expanded controls on player screen
+     *   (portrait/landscape switch forces controls back to collapsed).
+     * - Both device and orientation changes schedule a reclassification
+     *   refresh to reapply the current collapsed/expanded control state
+     *   after viewport changes. On orientation change, expanded controls
+     *   collapse first, so the refresh is mainly collapsed-state cleanup.
      */
     function handleResize() {
         var viewportChanged = updateViewportState();
@@ -974,6 +992,14 @@
     // Essential Control Detection
     // ═══════════════════════════════════════════════════════════════
     
+    // ─────────────────────────────────────────────────────────────────
+    // Collapsed Visibility (isEssentialControl / hideControl)
+    // ─────────────────────────────────────────────────────────────────
+    // Legacy name: isEssentialControl controls collapsed visibility only.
+    // Expanded organization is handled separately by ROW_IDS and
+    // classifyControlForExpandedRow(). isCollapsedVisibleControl() is
+    // an alias available for future migration; call sites not yet migrated.
+
     /**
      * Check if an element should remain visible (not hidden in Tools)
      * @param {HTMLElement} el - Element to check
@@ -1107,6 +1133,17 @@
         if (el.id === 'mastery-slider' || el.id === 'speed-slider' || el.id === 'player-av-offset-slider') return ROW_IDS.SLIDERS;
         if (el.id === WRAPPER_IDS.MASTERY || el.id === WRAPPER_IDS.SPEED || el.id === WRAPPER_IDS.AV) return ROW_IDS.SLIDERS;
 
+        // --- Stems: stem mixer container ---
+        if (isStemsControl(el)) {
+            if (_currentSongHasStems) {
+                el.classList.remove('mobile-hidden');
+                el.classList.remove('mobile-hide-advanced');
+                return ROW_IDS.STEMS;
+            }
+            hideStaleStemsControl(el);
+            return null;
+        }
+
         // --- Features: mixer, lyrics, simplify, HD, 3D ---
         if (el.id === 'btn-lyrics' || el.id === 'quality-select' || el.id === 'viz-picker') return ROW_IDS.FEATURES;
         var txt = (el.textContent || '').toLowerCase().trim();
@@ -1128,13 +1165,6 @@
         // --- Practice: loop A/B/save, detect, step, tuner ---
         if (onclick && (onclick.indexOf('setLoopStart') !== -1 || onclick.indexOf('setLoopEnd') !== -1 || onclick.indexOf('clearLoop') !== -1)) return ROW_IDS.PRACTICE;
         if (txt && /detect|step|tuner/i.test(txt)) return ROW_IDS.PRACTICE;
-
-        // --- Stems: stem mixer container ---
-        if (isStemsControl(el)) {
-            if (_currentSongHasStems) return ROW_IDS.STEMS;
-            hideStaleStemsControl(el);
-            return null;
-        }
 
         // --- Everything else ---
         return ROW_IDS.PLUGINS;
@@ -1548,12 +1578,33 @@
         row.style.paddingBottom = '5px';
     }
 
+    function createMobileSliderWrapper(wrapperId) {
+        var wrapper = document.createElement('div');
+        wrapper.id = wrapperId;
+        applyMobileSliderWrapperBaseStyles(wrapper);
+        return wrapper;
+    }
+
+    function createMobileSliderLabelRow() {
+        var row = document.createElement('div');
+        applyMobileSliderLabelRowStyles(row);
+        return row;
+    }
+
     function applyMobileSliderLabelTextStyles(el) {
         el.style.fontSize = CFG.sliderLabelFontSize + 'px';
         el.style.lineHeight = '1';
+        el.style.fontWeight = '400';
         el.style.margin = '0';
         el.style.padding = '0';
         el.style.width = 'auto';
+    }
+
+    function applyMobileSliderLabelTextStylesById(ids) {
+        ids.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) applyMobileSliderLabelTextStyles(el);
+        });
     }
 
     function createMobileSliderSeparator() {
@@ -1641,17 +1692,15 @@
         const speedLabel = document.getElementById('speed-label');
         if (speedSlider && speedLabel && speedSlider.parentElement === controls && speedLabel.parentElement === controls) {
             // Create wrapper container
-            var speedWrapper = document.createElement('div');
-            speedWrapper.id = WRAPPER_IDS.SPEED;
-            applyMobileSliderWrapperBaseStyles(speedWrapper);
+            var speedWrapper = createMobileSliderWrapper(WRAPPER_IDS.SPEED);
 
             // Create label row with static Speed label + separator + value
-            var speedLabelRow = document.createElement('div');
-            applyMobileSliderLabelRowStyles(speedLabelRow);
+            var speedLabelRow = createMobileSliderLabelRow();
 
             var speedStaticLabel = document.createElement('span');
             speedStaticLabel.textContent = 'Speed';
             speedStaticLabel.id = 'mobile-speed-static-label';
+            speedStaticLabel.className = 'text-xs text-gray-500 ml-1';
             applyMobileSliderLabelTextStyles(speedStaticLabel);
 
             // Apply label text styles to existing #speed-label (value element)
@@ -1679,13 +1728,10 @@
             masteryValue.parentElement === controls) {
             
             // Create column wrapper
-            var masteryWrapper = document.createElement('div');
-            masteryWrapper.id = WRAPPER_IDS.MASTERY;
-            applyMobileSliderWrapperBaseStyles(masteryWrapper);
+            var masteryWrapper = createMobileSliderWrapper(WRAPPER_IDS.MASTERY);
             
             // Create horizontal row for label + value
-            var masteryLabelRow = document.createElement('div');
-            applyMobileSliderLabelRowStyles(masteryLabelRow);
+            var masteryLabelRow = createMobileSliderLabelRow();
             
             // Insert wrapper before the label (label comes first in DOM)
             masteryLabel.parentElement.insertBefore(masteryWrapper, masteryLabel);
@@ -1716,13 +1762,10 @@
             avValue.parentElement === controls) {
             
             // Create column wrapper
-            var avWrapper = document.createElement('div');
-            avWrapper.id = WRAPPER_IDS.AV;
-            applyMobileSliderWrapperBaseStyles(avWrapper);
+            var avWrapper = createMobileSliderWrapper(WRAPPER_IDS.AV);
             
             // Create horizontal row for label + value
-            var avLabelRow = document.createElement('div');
-            applyMobileSliderLabelRowStyles(avLabelRow);
+            var avLabelRow = createMobileSliderLabelRow();
             
             // Insert wrapper before the label (label comes first in DOM)
             avLabel.parentElement.insertBefore(avWrapper, avLabel);
@@ -1764,11 +1807,11 @@
         
         // Run multiple passes to catch late-injected buttons (plugins load at different times)
         // Pass 1: 100ms - catches early plugins
-        setTimeout(() => reclassifyAllControls(), 100);
+        scheduleEnhancement(reclassifyAllControls, 100);
         // Pass 2: 300ms - catches most plugins
-        setTimeout(() => reclassifyAllControls(), 300);
+        scheduleEnhancement(reclassifyAllControls, 300);
         // Pass 3: 600ms - catches slow plugins
-        setTimeout(() => reclassifyAllControls(), 600);
+        scheduleEnhancement(reclassifyAllControls, 600);
         
         // Create minimalist chevron indicator (floats above controls with bounce animation)
         if (!_ui.swipeIndicator) {
@@ -1854,6 +1897,15 @@
             var labelRow = wrapper.querySelector('div');
             if (labelRow) applyMobileSliderLabelRowStyles(labelRow);
         });
+
+        applyMobileSliderLabelTextStylesById([
+            'mastery-slider-label',
+            'mastery-label',
+            'mobile-speed-static-label',
+            'speed-label',
+            'player-av-offset-slider-label',
+            'player-av-offset-label'
+        ]);
         
         // Reset slider heights (they get overridden to 44px)
         var speedSlider = document.getElementById('speed-slider');
@@ -2142,7 +2194,51 @@
         }, delay);
         _timers.pending.push(id);
     }
-    
+
+    function clearPendingEnhancements() {
+        _timers.pending.forEach(clearTimeout);
+        _timers.pending = [];
+    }
+
+    // Shared player-entry/startup timing passes. Keep delays/order in sync with
+    // tested startup behavior: early controls enhancement, mid-pass upstream and
+    // plugin UI hooks (Mixer, Section Practice, section map, HUD, gestures), and
+    // a later pass for the 3D highway overlay.
+    function schedulePlayerEntryEnhancements() {
+        scheduleEnhancement(enhancePlayerControls, 100);
+        scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
+        scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
+        scheduleEnhancement(ensureSectionPracticeCollapse, 200);
+        scheduleEnhancement(ensureSectionPracticeCollapse, 600);
+        scheduleEnhancement(enhanceSectionMap, 200);
+        scheduleEnhancement(adjustPlayerHud, 200);
+        scheduleEnhancement(enableHighwayGestures, 300);
+        scheduleEnhancement(enableControlsGestures, 150);
+        scheduleEnhancement(startHighway3dObserver, 500);
+        scheduleEnhancement(syncLoopMarkerState, 100);
+    }
+
+    // Post-playSong timing passes. Keep delays/order in sync with tested song-switch
+    // behavior: immediate loop state sync, early control/order refresh, upstream UI
+    // refreshes, gesture/observer rebinds, reclassification, and Mixer clamp setup.
+    function schedulePostPlaySongEnhancements() {
+        syncLoopMarkerState();
+
+        scheduleEnhancement(initWhoosh, 100);
+        scheduleEnhancement(reapplyControlOrder, 50);
+        scheduleEnhancement(ensureSectionPracticeCollapse, 150);
+        scheduleEnhancement(ensureSectionPracticeCollapse, 600);
+        scheduleEnhancement(enhanceSectionMap, 300);
+        scheduleEnhancement(adjustPlayerHud, 300);
+        scheduleEnhancement(enableHighwayGestures, 400);
+        scheduleEnhancement(enableControlsGestures, 150);
+        scheduleEnhancement(startHighway3dObserver, 600);
+        scheduleEnhancement(reclassifyAllControls, 150);
+        scheduleEnhancement(reclassifyAllControls, 500);
+        scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
+        scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // Section Map Mobile Enhancement
     // ═══════════════════════════════════════════════════════════════
@@ -2150,9 +2246,29 @@
     /**
      * Add live highway updates during section map drag (intercepts section_map plugin's drag)
      */
+    function disableSectionMapLiveUpdate() {
+        if (!_sectionMapLiveUpdateHandlers) return;
+
+        var handlers = _sectionMapLiveUpdateHandlers;
+
+        if (handlers.sectionMap) {
+            handlers.sectionMap.removeEventListener('mousedown', handlers.onDragStart);
+            handlers.sectionMap.removeEventListener('touchstart', handlers.onDragStart);
+        }
+
+        document.removeEventListener('mousemove', handlers.onDragMove);
+        document.removeEventListener('touchmove', handlers.onDragMove);
+        document.removeEventListener('mouseup', handlers.onDragEnd);
+        document.removeEventListener('touchend', handlers.onDragEnd);
+
+        _sectionMapLiveUpdateHandlers = null;
+    }
+
     function enableSectionMapLiveUpdate() {
         const sectionMap = document.getElementById('section-map');
         if (!sectionMap) return;
+
+        disableSectionMapLiveUpdate();
         
         let isDragging = false;
         let lastUpdateTime = 0;
@@ -2233,6 +2349,13 @@
         document.addEventListener('touchmove', onDragMove);
         document.addEventListener('mouseup', onDragEnd);
         document.addEventListener('touchend', onDragEnd);
+
+        _sectionMapLiveUpdateHandlers = {
+            sectionMap: sectionMap,
+            onDragStart: onDragStart,
+            onDragMove: onDragMove,
+            onDragEnd: onDragEnd
+        };
     }
     
     /**
@@ -2311,9 +2434,11 @@
      * Restore section map to original state
      */
     function restoreSectionMap() {
+        disableSectionMapLiveUpdate();
+
         const sectionMap = document.getElementById('section-map');
         if (!sectionMap) return;
-        
+
         stopSectionMapObserver();
         
         // Restore height
@@ -2830,22 +2955,29 @@
     function enableHighwayGestures() {
         const highway = document.getElementById('highway');
         if (!highway) return;
-        
+
+        if (_highwayGesturesTarget === highway) return;
+
+        disableHighwayGestures();
+
         highway.addEventListener('touchstart', onGestureStart, { passive: true });
         highway.addEventListener('touchmove', onGestureMove, { passive: false });
         highway.addEventListener('touchend', onGestureEnd, { passive: false });
+
+        _highwayGesturesTarget = highway;
     }
     
     /**
      * Disable highway gestures
      */
     function disableHighwayGestures() {
-        const highway = document.getElementById('highway');
-        if (!highway) return;
-        
-        highway.removeEventListener('touchstart', onGestureStart);
-        highway.removeEventListener('touchmove', onGestureMove);
-        highway.removeEventListener('touchend', onGestureEnd);
+        if (!_highwayGesturesTarget) return;
+
+        _highwayGesturesTarget.removeEventListener('touchstart', onGestureStart);
+        _highwayGesturesTarget.removeEventListener('touchmove', onGestureMove);
+        _highwayGesturesTarget.removeEventListener('touchend', onGestureEnd);
+
+        _highwayGesturesTarget = null;
     }
     
     /**
@@ -3155,22 +3287,29 @@
     function enableControlsGestures() {
         const controls = document.getElementById('player-controls');
         if (!controls) return;
-        
+
+        if (_controlsGesturesTarget === controls) return;
+
+        disableControlsGestures();
+
         controls.addEventListener('touchstart', onControlsGestureStart, { passive: true });
         controls.addEventListener('touchmove', onControlsGestureMove, { passive: false });
         controls.addEventListener('touchend', onControlsGestureEnd, { passive: false });
+
+        _controlsGesturesTarget = controls;
     }
     
     /**
      * Disable controls gestures
      */
     function disableControlsGestures() {
-        const controls = document.getElementById('player-controls');
-        if (!controls) return;
-        
-        controls.removeEventListener('touchstart', onControlsGestureStart);
-        controls.removeEventListener('touchmove', onControlsGestureMove);
-        controls.removeEventListener('touchend', onControlsGestureEnd);
+        if (!_controlsGesturesTarget) return;
+
+        _controlsGesturesTarget.removeEventListener('touchstart', onControlsGestureStart);
+        _controlsGesturesTarget.removeEventListener('touchmove', onControlsGestureMove);
+        _controlsGesturesTarget.removeEventListener('touchend', onControlsGestureEnd);
+
+        _controlsGesturesTarget = null;
     }
     
     /**
@@ -3233,105 +3372,153 @@
     // ═══════════════════════════════════════════════════════════════
     // Lifecycle
     // ═══════════════════════════════════════════════════════════════
-    
-    /**
-     * Remove Mobile Note Highway enhancements
-     */
-    function cleanup() {
-        // Cancel all pending timeouts
-        _timers.pending.forEach(clearTimeout);
-        _timers.pending = [];
-        
+
+    function clearInteractionTimers() {
         if (_timers.doubleTap) {
             clearTimeout(_timers.doubleTap);
             _timers.doubleTap = null;
         }
-        
-        // Stop observing
-        stopControlsObserver();
+    }
 
-        // Tear down expanded section rows before restoring mobile controls
-        const controls = document.getElementById('player-controls');
-        if (controls) {
-            teardownExpandedControlRows(controls);
-        }
-
-        // Remove swipe indicator
+    function removeSwipeIndicator() {
         if (_ui.swipeIndicator && _ui.swipeIndicator.parentElement) {
             _ui.swipeIndicator.remove();
             _ui.swipeIndicator = null;
         }
-        
-        // Restore close button to original state and clear positioning
-        if (controls) {
-            const backBtn = controls.querySelector('#mobile-back-btn') || Array.from(controls.querySelectorAll('button')).find(btn => {
-                const onclick = btn.getAttribute('onclick');
-                return onclick && onclick.includes("showScreen('home')");
-            });
-            if (backBtn) {
-                restoreCloseButton(backBtn);
-                backBtn.style.order = '';
-                backBtn.style.marginLeft = '';
-                backBtn.style.marginRight = '';
-            }
+    }
+
+    function restoreMobileBackButton(controls) {
+        if (!controls) return;
+        var backBtn = controls.querySelector('#mobile-back-btn') || Array.from(controls.querySelectorAll('button')).find(function(btn) {
+            var onclick = btn.getAttribute('onclick');
+            return onclick && onclick.indexOf("showScreen('home')") !== -1;
+        });
+        if (backBtn) {
+            restoreCloseButton(backBtn);
+            backBtn.style.order = '';
+            backBtn.style.marginLeft = '';
+            backBtn.style.marginRight = '';
         }
+    }
+
+    function restoreMobileControlVisibility() {
+        document.querySelectorAll('.mobile-hide-advanced').forEach(function(el) {
+            el.classList.remove('mobile-hide-advanced');
+            el.style.display = '';
+        });
+    }
+
+    function restoreMobileTouchTargets(controls) {
+        if (!controls) return;
+
+        Array.from(controls.querySelectorAll('button')).forEach(function(btn) {
+            btn.style.minHeight = '';
+            btn.style.minWidth = '';
+            btn.style.padding = '';
+        });
+
+        Array.from(controls.querySelectorAll('.seek-label')).forEach(function(label) {
+            label.style.display = '';
+        });
+
+        Array.from(controls.querySelectorAll('input[type="range"]')).forEach(function(slider) {
+            slider.style.minHeight = '';
+        });
+    }
+
+    function resetMobileUiState() {
+        applyExpandedSliderRowStyles(false);
+        _expandedSectionState.tools = false;
+        _ui.expanded = false;
+    }
+
+    function resetMobileSliderLabelStyles(el) {
+        if (!el) return;
+        el.style.fontSize = '';
+        el.style.lineHeight = '';
+        el.style.fontWeight = '';
+        el.style.margin = '';
+        el.style.padding = '';
+        el.style.marginBottom = '';
+        el.style.paddingTop = '';
+        el.style.paddingBottom = '';
+        el.style.textAlign = '';
+        el.style.width = '';
+    }
+
+    function resetMobileSliderInputStyles(el) {
+        if (!el) return;
+        el.style.minHeight = '';
+        el.style.height = '';
+        el.style.minWidth = '';
+        el.style.width = '';
+    }
+
+    function restoreMobileSliderWrapper(controls, wrapperId, orderedElementIds) {
+        var wrapper = document.getElementById(wrapperId);
+        if (!controls || !wrapper || wrapper.parentElement !== controls) return;
+
+        orderedElementIds.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (!el || !wrapper.contains(el)) return;
+
+            controls.insertBefore(el, wrapper);
+
+            if (el.tagName === 'INPUT') {
+                resetMobileSliderInputStyles(el);
+            } else {
+                resetMobileSliderLabelStyles(el);
+            }
+        });
+
+        wrapper.remove();
+    }
+
+    function restoreMobileSliderWrappers(controls) {
+        restoreMobileSliderWrapper(controls, WRAPPER_IDS.MASTERY, [
+            'mastery-slider-label',
+            'mastery-label',
+            'mastery-slider'
+        ]);
+
+        // Preserve current tested Speed cleanup final order.
+        // Existing Speed-only cleanup inserted speed-slider before speed-label.
+        restoreMobileSliderWrapper(controls, WRAPPER_IDS.SPEED, [
+            'speed-slider',
+            'speed-label'
+        ]);
+
+        restoreMobileSliderWrapper(controls, WRAPPER_IDS.AV, [
+            'player-av-offset-slider-label',
+            'player-av-offset-label',
+            'player-av-offset-slider'
+        ]);
+    }
+
+    /**
+     * Remove Mobile Note Highway enhancements
+     */
+    function cleanup() {
+        clearPendingEnhancements();
+        clearInteractionTimers();
+        stopControlsObserver();
+
+        var controls = document.getElementById('player-controls');
+        if (controls) {
+            teardownExpandedControlRows(controls);
+        }
+
+        removeSwipeIndicator();
+        restoreMobileBackButton(controls);
 
         teardownSectionPracticeCollapse();
         teardownMixerPopoverMobileClamp();
 
-        // Restore all hidden controls
-        document.querySelectorAll('.mobile-hide-advanced').forEach(el => {
-            el.classList.remove('mobile-hide-advanced');
-            el.style.display = '';
-        });
-        
-        // Unwrap speed slider/label if wrapped
-        const speedSlider = document.getElementById('speed-slider');
-        const speedLabel = document.getElementById('speed-label');
-        if (speedSlider && speedLabel && speedSlider.parentElement && speedSlider.parentElement !== controls) {
-            const wrapper = speedSlider.parentElement;
-            if (controls && wrapper.parentElement === controls) {
-                // Move elements back to controls
-                controls.insertBefore(speedSlider, wrapper);
-                controls.insertBefore(speedLabel, wrapper);
-                // Remove wrapper
-                wrapper.remove();
-                // Restore original styles
-                speedLabel.style.fontSize = '';
-                speedLabel.style.lineHeight = '';
-                speedLabel.style.margin = '';
-                speedLabel.style.padding = '';
-                speedLabel.style.marginBottom = '';
-                speedLabel.style.paddingTop = '';
-                speedLabel.style.paddingBottom = '';
-                speedLabel.style.textAlign = '';
-                speedLabel.style.width = '';
-                speedSlider.style.minHeight = '';
-                speedSlider.style.height = '';
-            }
-        }
-        
-        // Reset touch target sizes
-        if (controls) {
-            Array.from(controls.querySelectorAll('button')).forEach(btn => {
-                btn.style.minHeight = '';
-                btn.style.minWidth = '';
-                btn.style.padding = '';
-            });
-            
-            // Restore seek button labels
-            Array.from(controls.querySelectorAll('.seek-label')).forEach(label => {
-                label.style.display = '';
-            });
-            
-            Array.from(controls.querySelectorAll('input[type="range"]')).forEach(slider => {
-                slider.style.minHeight = '';
-            });
-        }
-        
-        applyExpandedSliderRowStyles(false);
-        _expandedSectionState.tools = false;
-        _ui.expanded = false;
+        restoreMobileControlVisibility();
+        restoreMobileSliderWrappers(controls);
+
+        restoreMobileTouchTargets(controls);
+        resetMobileUiState();
     }
     
     /**
@@ -3350,22 +3537,7 @@
             const screenId = e.detail.id || e.detail.screen;
             
             if (screenId === 'player') {
-                scheduleEnhancement(enhancePlayerControls, 100);
-                scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
-                scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
-                scheduleEnhancement(ensureSectionPracticeCollapse, 200);
-                scheduleEnhancement(ensureSectionPracticeCollapse, 600);
-                // Section map might already exist or appear soon (200ms)
-                scheduleEnhancement(enhanceSectionMap, 200);
-                // Adjust HUD position (200ms)
-                scheduleEnhancement(adjustPlayerHud, 200);
-                // Enable gesture controls (300ms)
-                scheduleEnhancement(enableHighwayGestures, 300);
-                // Enable controls swipe gestures (150ms - after controls are enhanced)
-                scheduleEnhancement(enableControlsGestures, 150);
-                // Start observing 3D highway overlay (500ms - needs more time to load)
-                scheduleEnhancement(startHighway3dObserver, 500);
-                scheduleEnhancement(syncLoopMarkerState, 100);
+                schedulePlayerEntryEnhancements();
             } else {
                 stopWhoosh();
                 cleanup();
@@ -3394,8 +3566,7 @@
         if (origPlaySong) {
             window.playSong = async function(filename, arrangement) {
                 // Cancel any pending enhancements from previous song
-                _timers.pending.forEach(clearTimeout);
-                _timers.pending = [];
+                clearPendingEnhancements();
                 
                 // Stop any active whoosh from previous song/scrubbing
                 stopWhoosh();
@@ -3403,22 +3574,8 @@
                 _currentSongHasStems = false;
 
                 await origPlaySong(filename, arrangement);
-                
-                syncLoopMarkerState();
-                
-                scheduleEnhancement(initWhoosh, 100);
-                scheduleEnhancement(reapplyControlOrder, 50);
-                scheduleEnhancement(ensureSectionPracticeCollapse, 150);
-                scheduleEnhancement(ensureSectionPracticeCollapse, 600);
-                scheduleEnhancement(enhanceSectionMap, 300);
-                scheduleEnhancement(adjustPlayerHud, 300);
-                scheduleEnhancement(enableHighwayGestures, 400);
-                scheduleEnhancement(enableControlsGestures, 150);
-                scheduleEnhancement(startHighway3dObserver, 600);
-                scheduleEnhancement(reclassifyAllControls, 150);
-                scheduleEnhancement(reclassifyAllControls, 500);
-                scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
-                scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
+
+                schedulePostPlaySongEnhancements();
             };
         }
         
@@ -3468,17 +3625,7 @@
         
         const currentScreen = window.slopsmith.getCurrentScreen?.();
         if (currentScreen === 'player') {
-            scheduleEnhancement(enhancePlayerControls, 100);
-            scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
-            scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
-            scheduleEnhancement(ensureSectionPracticeCollapse, 200);
-            scheduleEnhancement(ensureSectionPracticeCollapse, 600);
-            scheduleEnhancement(enhanceSectionMap, 200);
-            scheduleEnhancement(adjustPlayerHud, 200);
-            scheduleEnhancement(enableHighwayGestures, 300);
-            scheduleEnhancement(enableControlsGestures, 150);
-            scheduleEnhancement(startHighway3dObserver, 500);
-            scheduleEnhancement(syncLoopMarkerState, 100);
+            schedulePlayerEntryEnhancements();
         }
     }
     
