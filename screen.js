@@ -410,6 +410,7 @@
             header.textContent = 'More controls ' + (open ? '\u25B4' : '\u25BE');
         }
         applyExpandedLandscapeToolsRowsLayout();
+        scheduleHighwayLayoutRefresh('more-controls');
     }
 
     function ensureExpandedSectionHeaders(controls) {
@@ -568,6 +569,8 @@
         ) {
             bar.style.setProperty('display', 'none', 'important');
         }
+
+        scheduleHighwayLayoutRefresh('section-practice');
     }
 
     function startSectionPracticeObserver(bar) {
@@ -2178,6 +2181,8 @@
             closeButton.style.marginLeft = '0';
             closeButton.style.marginRight = _ui.expanded ? '0' : ((DEVICE === 'phone') ? '4px' : '12px');
         }
+
+        scheduleHighwayLayoutRefresh('controls-toggle');
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -2198,6 +2203,24 @@
     function clearPendingEnhancements() {
         _timers.pending.forEach(clearTimeout);
         _timers.pending = [];
+    }
+
+    function refreshHighwayLayout() {
+        if (getCurrentScreenId() !== 'player') return;
+
+        if (window.highway && typeof window.highway.resize === 'function') {
+            try {
+                window.highway.resize();
+                return;
+            } catch (_) {}
+        }
+
+        window.dispatchEvent(new Event('resize'));
+    }
+
+    function scheduleHighwayLayoutRefresh(reason) {
+        scheduleEnhancement(refreshHighwayLayout, 50);
+        scheduleEnhancement(refreshHighwayLayout, 250);
     }
 
     // Shared player-entry/startup timing passes. Keep delays/order in sync with
