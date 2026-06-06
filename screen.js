@@ -901,8 +901,13 @@
             toggleAdvancedControls(false);
         }
 
+        if (currentScreen === 'player' && viewportChanged.orientationChanged) {
+            scheduleOrientationHighwayLayoutRefresh();
+        }
+
         if (currentScreen === 'player' && (viewportChanged.deviceChanged || viewportChanged.orientationChanged)) {
             scheduleEnhancement(reclassifyAllControls, 100);
+            scheduleEnhancement(reapplyMobileSliderWrapperStyles, 150);
         }
 
         if (viewportChanged.deviceChanged && currentScreen === 'player') {
@@ -1010,6 +1015,14 @@
      * @param {HTMLElement} el - Element to check
      * @returns {boolean} True if element is essential and should stay visible
      */
+
+    function shouldShowCollapsedOffsetSlider() {
+        return DEVICE === 'tablet' &&
+               IS_LANDSCAPE &&
+               !_ui.expanded &&
+               document.documentElement.clientWidth >= 900;
+    }
+
     function isEssentialControl(el) {
         // Essential control IDs (phone: play + arrangement; tablet adds difficulty + speed)
         const essentialIds = [
@@ -1019,6 +1032,9 @@
         ];
         if (IS_TABLET) {
             essentialIds.push('mastery-slider', 'mastery-slider-label', 'mastery-label', 'speed-slider', 'speed-label');
+        }
+        if (shouldShowCollapsedOffsetSlider()) {
+            essentialIds.push('player-av-offset-slider', 'player-av-offset-slider-label', 'player-av-offset-label');
         }
         
         // Check by ID
@@ -1316,7 +1332,7 @@
         }
         
         if (avWrapper) {
-            avWrapper.style.order = CONTROL_ORDER.REST;
+            avWrapper.style.order = '4';
         }
 
         applyExpandedSliderRowStyles();
@@ -1512,6 +1528,7 @@
         var expanded = (typeof forceExpanded === 'boolean') ? forceExpanded : _ui.expanded;
         var useEqualWidthSliders = expanded && (DEVICE === 'phone' || DEVICE === 'tablet');
         var useCollapsedTabletFit = !expanded && DEVICE === 'tablet';
+        var useCollapsedTabletOffsetFit = useCollapsedTabletFit && shouldShowCollapsedOffsetSlider();
         var wrapperIds = [WRAPPER_IDS.MASTERY, WRAPPER_IDS.SPEED, WRAPPER_IDS.AV];
         var sliderIds = ['mastery-slider', 'speed-slider', 'player-av-offset-slider'];
 
@@ -1523,7 +1540,7 @@
                 wrapper.style.minWidth = '0';
                 wrapper.style.width = 'auto';
                 wrapper.style.maxWidth = '';
-            } else if (useCollapsedTabletFit && (id === WRAPPER_IDS.MASTERY || id === WRAPPER_IDS.SPEED)) {
+            } else if (useCollapsedTabletFit && (id === WRAPPER_IDS.MASTERY || id === WRAPPER_IDS.SPEED || (useCollapsedTabletOffsetFit && id === WRAPPER_IDS.AV))) {
                 wrapper.style.flex = '1 1 0';
                 wrapper.style.minWidth = '0';
                 wrapper.style.width = 'auto';
@@ -1542,7 +1559,7 @@
             if (useEqualWidthSliders) {
                 slider.style.width = '100%';
                 slider.style.minWidth = '0';
-            } else if (useCollapsedTabletFit && (id === 'mastery-slider' || id === 'speed-slider')) {
+            } else if (useCollapsedTabletFit && (id === 'mastery-slider' || id === 'speed-slider' || (useCollapsedTabletOffsetFit && id === 'player-av-offset-slider'))) {
                 slider.style.width = '100%';
                 slider.style.minWidth = '0';
             } else {
@@ -1878,27 +1895,19 @@
      * Used on song re-entry to fix misalignment.
      */
     function reapplyControlOrder() {
-        // Apply order and margins
         applyControlOrder();
-        
-        // Re-set wrapper display and styles (can get cleared on song change)
+        reapplyMobileSliderWrapperStyles();
+        reclassifyAllControls();
+    }
+
+    function reapplyMobileSliderWrapperStyles() {
         var masteryWrapper = document.getElementById(WRAPPER_IDS.MASTERY);
         var speedWrapper = document.getElementById(WRAPPER_IDS.SPEED);
         var avWrapper = document.getElementById(WRAPPER_IDS.AV);
-        
-        if (masteryWrapper) {
-            applyMobileSliderWrapperBaseStyles(masteryWrapper);
-        }
-        if (speedWrapper) {
-            applyMobileSliderWrapperBaseStyles(speedWrapper);
-        }
-        if (avWrapper) {
-            applyMobileSliderWrapperBaseStyles(avWrapper);
-        }
 
-        // Re-set label row styles
         [masteryWrapper, speedWrapper, avWrapper].forEach(function(wrapper) {
             if (!wrapper) return;
+            applyMobileSliderWrapperBaseStyles(wrapper);
             var labelRow = wrapper.querySelector('div');
             if (labelRow) applyMobileSliderLabelRowStyles(labelRow);
         });
@@ -1911,12 +1920,11 @@
             'player-av-offset-slider-label',
             'player-av-offset-label'
         ]);
-        
-        // Reset slider heights (they get overridden to 44px)
+
         var speedSlider = document.getElementById('speed-slider');
         var masterySlider = document.getElementById('mastery-slider');
         var avSlider = document.getElementById('player-av-offset-slider');
-        
+
         if (speedSlider) {
             applyMobileSliderInputBaseStyles(speedSlider, { includeMinWidth: false });
         }
@@ -1926,10 +1934,8 @@
         if (avSlider) {
             applyMobileSliderInputBaseStyles(avSlider, { includeMinWidth: false });
         }
+
         applyExpandedSliderRowStyles();
-        
-        // Re-classify controls to fix visibility (the actual fix for missing sliders)
-        reclassifyAllControls();
     }
     
     /**
@@ -2223,6 +2229,12 @@
     function scheduleHighwayLayoutRefresh(reason) {
         scheduleEnhancement(refreshHighwayLayout, 50);
         scheduleEnhancement(refreshHighwayLayout, 250);
+    }
+
+    function scheduleOrientationHighwayLayoutRefresh() {
+        scheduleHighwayLayoutRefresh('orientation');
+        scheduleEnhancement(refreshHighwayLayout, 500);
+        scheduleEnhancement(refreshHighwayLayout, 800);
     }
 
     function scheduleHighwayViewChangeRefresh() {
