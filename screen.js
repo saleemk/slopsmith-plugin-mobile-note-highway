@@ -305,6 +305,8 @@
     let _highway3dAdjusted = false;
     let _highwayGesturesTarget = null;
     let _controlsGesturesTarget = null;
+    let _highwayViewChangeTarget = null;
+    let _highwayViewChangeHandler = null;
     
     // Expanded section row placement tracking
     const _expandedControlPlacement = new WeakMap();
@@ -2223,6 +2225,39 @@
         scheduleEnhancement(refreshHighwayLayout, 250);
     }
 
+    function scheduleHighwayViewChangeRefresh() {
+        scheduleHighwayLayoutRefresh('highway-view-change');
+        scheduleEnhancement(refreshHighwayLayout, 700);
+        scheduleEnhancement(refreshHighwayLayout, 1000);
+
+        scheduleEnhancement(startHighway3dObserver, 100);
+        scheduleEnhancement(startHighway3dObserver, 500);
+        scheduleEnhancement(startHighway3dObserver, 1000);
+    }
+
+    function setupHighwayViewChangeRefresh() {
+        var picker = document.getElementById('viz-picker');
+        if (!picker) return;
+        if (_highwayViewChangeTarget === picker) return;
+
+        teardownHighwayViewChangeRefresh();
+
+        _highwayViewChangeHandler = function() {
+            scheduleHighwayViewChangeRefresh();
+        };
+
+        picker.addEventListener('change', _highwayViewChangeHandler);
+        _highwayViewChangeTarget = picker;
+    }
+
+    function teardownHighwayViewChangeRefresh() {
+        if (_highwayViewChangeTarget && _highwayViewChangeHandler) {
+            _highwayViewChangeTarget.removeEventListener('change', _highwayViewChangeHandler);
+        }
+        _highwayViewChangeTarget = null;
+        _highwayViewChangeHandler = null;
+    }
+
     // Shared player-entry/startup timing passes. Keep delays/order in sync with
     // tested startup behavior: early controls enhancement, mid-pass upstream and
     // plugin UI hooks (Mixer, Section Practice, section map, HUD, gestures), and
@@ -2239,6 +2274,8 @@
         scheduleEnhancement(enableControlsGestures, 150);
         scheduleEnhancement(startHighway3dObserver, 500);
         scheduleEnhancement(syncLoopMarkerState, 100);
+        scheduleEnhancement(setupHighwayViewChangeRefresh, 350);
+        scheduleEnhancement(setupHighwayViewChangeRefresh, 800);
     }
 
     // Post-playSong timing passes. Keep delays/order in sync with tested song-switch
@@ -2260,6 +2297,8 @@
         scheduleEnhancement(reclassifyAllControls, 500);
         scheduleEnhancement(setupMixerPopoverMobileClamp, 250);
         scheduleEnhancement(setupMixerPopoverMobileClamp, 700);
+        scheduleEnhancement(setupHighwayViewChangeRefresh, 350);
+        scheduleEnhancement(setupHighwayViewChangeRefresh, 800);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -3536,6 +3575,7 @@
 
         teardownSectionPracticeCollapse();
         teardownMixerPopoverMobileClamp();
+        teardownHighwayViewChangeRefresh();
 
         restoreMobileControlVisibility();
         restoreMobileSliderWrappers(controls);
