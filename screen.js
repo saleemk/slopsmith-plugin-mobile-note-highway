@@ -303,6 +303,8 @@
     let _sectionMapLiveUpdateHandlers = null;
     let _highway3dObserver = null;
     let _highway3dAdjusted = false;
+    let _highwayGesturesTarget = null;
+    let _controlsGesturesTarget = null;
     
     // Expanded section row placement tracking
     const _expandedControlPlacement = new WeakMap();
@@ -2953,22 +2955,29 @@
     function enableHighwayGestures() {
         const highway = document.getElementById('highway');
         if (!highway) return;
-        
+
+        if (_highwayGesturesTarget === highway) return;
+
+        disableHighwayGestures();
+
         highway.addEventListener('touchstart', onGestureStart, { passive: true });
         highway.addEventListener('touchmove', onGestureMove, { passive: false });
         highway.addEventListener('touchend', onGestureEnd, { passive: false });
+
+        _highwayGesturesTarget = highway;
     }
     
     /**
      * Disable highway gestures
      */
     function disableHighwayGestures() {
-        const highway = document.getElementById('highway');
-        if (!highway) return;
-        
-        highway.removeEventListener('touchstart', onGestureStart);
-        highway.removeEventListener('touchmove', onGestureMove);
-        highway.removeEventListener('touchend', onGestureEnd);
+        if (!_highwayGesturesTarget) return;
+
+        _highwayGesturesTarget.removeEventListener('touchstart', onGestureStart);
+        _highwayGesturesTarget.removeEventListener('touchmove', onGestureMove);
+        _highwayGesturesTarget.removeEventListener('touchend', onGestureEnd);
+
+        _highwayGesturesTarget = null;
     }
     
     /**
@@ -3278,22 +3287,29 @@
     function enableControlsGestures() {
         const controls = document.getElementById('player-controls');
         if (!controls) return;
-        
+
+        if (_controlsGesturesTarget === controls) return;
+
+        disableControlsGestures();
+
         controls.addEventListener('touchstart', onControlsGestureStart, { passive: true });
         controls.addEventListener('touchmove', onControlsGestureMove, { passive: false });
         controls.addEventListener('touchend', onControlsGestureEnd, { passive: false });
+
+        _controlsGesturesTarget = controls;
     }
     
     /**
      * Disable controls gestures
      */
     function disableControlsGestures() {
-        const controls = document.getElementById('player-controls');
-        if (!controls) return;
-        
-        controls.removeEventListener('touchstart', onControlsGestureStart);
-        controls.removeEventListener('touchmove', onControlsGestureMove);
-        controls.removeEventListener('touchend', onControlsGestureEnd);
+        if (!_controlsGesturesTarget) return;
+
+        _controlsGesturesTarget.removeEventListener('touchstart', onControlsGestureStart);
+        _controlsGesturesTarget.removeEventListener('touchmove', onControlsGestureMove);
+        _controlsGesturesTarget.removeEventListener('touchend', onControlsGestureEnd);
+
+        _controlsGesturesTarget = null;
     }
     
     /**
