@@ -903,6 +903,7 @@
 
         if (currentScreen === 'player' && (viewportChanged.deviceChanged || viewportChanged.orientationChanged)) {
             scheduleEnhancement(reclassifyAllControls, 100);
+            scheduleEnhancement(reapplyMobileSliderWrapperStyles, 150);
         }
 
         if (viewportChanged.deviceChanged && currentScreen === 'player') {
@@ -1890,27 +1891,19 @@
      * Used on song re-entry to fix misalignment.
      */
     function reapplyControlOrder() {
-        // Apply order and margins
         applyControlOrder();
-        
-        // Re-set wrapper display and styles (can get cleared on song change)
+        reapplyMobileSliderWrapperStyles();
+        reclassifyAllControls();
+    }
+
+    function reapplyMobileSliderWrapperStyles() {
         var masteryWrapper = document.getElementById(WRAPPER_IDS.MASTERY);
         var speedWrapper = document.getElementById(WRAPPER_IDS.SPEED);
         var avWrapper = document.getElementById(WRAPPER_IDS.AV);
-        
-        if (masteryWrapper) {
-            applyMobileSliderWrapperBaseStyles(masteryWrapper);
-        }
-        if (speedWrapper) {
-            applyMobileSliderWrapperBaseStyles(speedWrapper);
-        }
-        if (avWrapper) {
-            applyMobileSliderWrapperBaseStyles(avWrapper);
-        }
 
-        // Re-set label row styles
         [masteryWrapper, speedWrapper, avWrapper].forEach(function(wrapper) {
             if (!wrapper) return;
+            applyMobileSliderWrapperBaseStyles(wrapper);
             var labelRow = wrapper.querySelector('div');
             if (labelRow) applyMobileSliderLabelRowStyles(labelRow);
         });
@@ -1923,12 +1916,11 @@
             'player-av-offset-slider-label',
             'player-av-offset-label'
         ]);
-        
-        // Reset slider heights (they get overridden to 44px)
+
         var speedSlider = document.getElementById('speed-slider');
         var masterySlider = document.getElementById('mastery-slider');
         var avSlider = document.getElementById('player-av-offset-slider');
-        
+
         if (speedSlider) {
             applyMobileSliderInputBaseStyles(speedSlider, { includeMinWidth: false });
         }
@@ -1938,10 +1930,8 @@
         if (avSlider) {
             applyMobileSliderInputBaseStyles(avSlider, { includeMinWidth: false });
         }
+
         applyExpandedSliderRowStyles();
-        
-        // Re-classify controls to fix visibility (the actual fix for missing sliders)
-        reclassifyAllControls();
     }
     
     /**
