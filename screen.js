@@ -300,6 +300,7 @@
     // Observers (managed by createManagedObserver)
     let _controlsObserver = null;
     let _sectionMapObserver = null;
+    let _sectionMapLiveUpdateHandlers = null;
     let _highway3dObserver = null;
     let _highway3dAdjusted = false;
     
@@ -2243,9 +2244,29 @@
     /**
      * Add live highway updates during section map drag (intercepts section_map plugin's drag)
      */
+    function disableSectionMapLiveUpdate() {
+        if (!_sectionMapLiveUpdateHandlers) return;
+
+        var handlers = _sectionMapLiveUpdateHandlers;
+
+        if (handlers.sectionMap) {
+            handlers.sectionMap.removeEventListener('mousedown', handlers.onDragStart);
+            handlers.sectionMap.removeEventListener('touchstart', handlers.onDragStart);
+        }
+
+        document.removeEventListener('mousemove', handlers.onDragMove);
+        document.removeEventListener('touchmove', handlers.onDragMove);
+        document.removeEventListener('mouseup', handlers.onDragEnd);
+        document.removeEventListener('touchend', handlers.onDragEnd);
+
+        _sectionMapLiveUpdateHandlers = null;
+    }
+
     function enableSectionMapLiveUpdate() {
         const sectionMap = document.getElementById('section-map');
         if (!sectionMap) return;
+
+        disableSectionMapLiveUpdate();
         
         let isDragging = false;
         let lastUpdateTime = 0;
@@ -2326,6 +2347,13 @@
         document.addEventListener('touchmove', onDragMove);
         document.addEventListener('mouseup', onDragEnd);
         document.addEventListener('touchend', onDragEnd);
+
+        _sectionMapLiveUpdateHandlers = {
+            sectionMap: sectionMap,
+            onDragStart: onDragStart,
+            onDragMove: onDragMove,
+            onDragEnd: onDragEnd
+        };
     }
     
     /**
@@ -2404,9 +2432,11 @@
      * Restore section map to original state
      */
     function restoreSectionMap() {
+        disableSectionMapLiveUpdate();
+
         const sectionMap = document.getElementById('section-map');
         if (!sectionMap) return;
-        
+
         stopSectionMapObserver();
         
         // Restore height
