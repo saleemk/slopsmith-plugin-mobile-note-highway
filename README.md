@@ -2,9 +2,9 @@
 
 [![GitHub release](https://img.shields.io/github/v/release/saleemk/slopsmith-plugin-mobile-note-highway)](https://github.com/saleemk/slopsmith-plugin-mobile-note-highway/releases)
 
-A touch-optimized note highway player plugin for [Slopsmith](https://github.com/slopsmith/slopsmith) that transforms the player experience on phones and tablets. Collapsible controls, organized expanded sections, intuitive gestures with live audio feedback, and device-adaptive layouts let you focus on playing.
+A touch-optimized note highway player plugin for [Slopsmith](https://github.com/slopsmith/slopsmith) that transforms the player experience on phones and tablets. Collapsible controls, organized expanded sections, landscape-aware layouts, intuitive gestures with live audio feedback, and device-adaptive controls let you focus on playing.
 
-**Tested on iOS (portrait mode).** Android should work and likely has native touch feedback, but hasn't been verified.
+**Tested on iOS phones and tablets in portrait and landscape.** Android should work and likely has native touch feedback, but hasn't been verified.
 
 ### Phone View
 
@@ -22,7 +22,11 @@ A touch-optimized note highway player plugin for [Slopsmith](https://github.com/
 
 - **Collapsible controls** - Swipe up/down to show/hide advanced tools. Only essentials visible by default.
 - **Organized expanded controls** - Expanded mode groups controls into Playback, Sliders, Practice, Stems, and More controls sections.
+- **Landscape-aware layout** - Expanded landscape mode uses compact rows to preserve highway space.
 - **More controls accordion** - Secondary display and plugin actions stay tucked away until needed.
+- **Section Practice disclosure** - Slopsmith's Section Practice bar stays available but collapsed in place on mobile.
+- **Mobile-safe Mixer popover** - Mixer controls are clamped to the viewport on phones and tablets.
+- **Aligned mobile sliders** - Difficulty, speed, and A/V offset use matching labels and touch-friendly tracks.
 - **Swipe up/down on highway** - Scrub through the song by dragging vertically with live highway preview - matches the natural flow of notes scrolling toward you
 - **Tap to play/pause** - Single tap anywhere on the highway
 - **Double tap to loop** - Set A/B loop markers with double taps (A → B → Clear)
@@ -92,6 +96,11 @@ Open any song on your phone or tablet — the plugin activates automatically.
 - **Stems:** Stem mixer controls, shown only for stem-format songs
 - **More controls:** Mixer, Lyrics, Simplify, HD, 3D Highway, Save, Tones, Fretboard, and other plugin actions
 
+**Landscape behavior:**
+- Expanded controls use compact horizontal rows to preserve note highway space.
+- More controls content is compacted in landscape while keeping popovers and dropdowns usable.
+- Rotating while controls are expanded collapses them so the next expand rebuilds the correct layout for the new orientation.
+
 All gestures show brief visual feedback confirming the action.
 
 ## How it works
@@ -117,9 +126,9 @@ Customize the plugin in **Settings → Mobile Note Highway**:
 
 ## Compatibility
 
-**Tested on:** iOS devices (iPhone and iPad) in portrait orientation.
+**Tested on:** iOS devices (iPhone and iPad) in portrait and landscape orientation.
 
-**Optimized for:** Portrait mode on phones and tablets. Landscape mode works but may require manual scrolling.
+**Optimized for:** Portrait and landscape mode on phones and tablets.
 
 The plugin should work on Android devices but has not been tested. If you encounter issues, please open an issue with your device model and browser version.
 
@@ -128,7 +137,7 @@ The plugin should work on Android devices but has not been tested. If you encoun
 Future improvements planned:
 
 - **Configurable essential controls** - Let users customize which controls appear in collapsed view
-- **Landscape optimization** - Better layout and spacing for horizontal orientation
+- ~~**Landscape optimization** - Better layout and spacing for horizontal orientation~~
 - **Expanded view polish** - Continue refining spacing, orientation behavior, and plugin grouping
 - ~~**Gesture refinement** - Re-evaluate swipe left/right behavior for better seek control~~
 
@@ -137,8 +146,10 @@ Future improvements planned:
 - Pure vanilla JavaScript, no dependencies
 - Uses `MutationObserver` to catch plugin buttons as they load
 - Routes expanded controls into functional section rows while keeping collapsed visibility separate
+- Tracks orientation separately from device type so landscape layout can adapt without changing phone/tablet detection
 - Uses song metadata (`highway.getSongInfo().stems`) to show the Stems row only for stem-format songs
 - Provides a More controls accordion for secondary display and plugin actions
+- Keeps upstream Section Practice and Mixer UI owned by Slopsmith while applying mobile-safe presentation around them
 - Hooks into `setLoopStart`/`setLoopEnd`/`clearLoop` for gesture sync
 - Web Audio API for scrubbing audio feedback
 - Intercepts section_map plugin's drag events to add live highway updates
