@@ -901,6 +901,10 @@
             toggleAdvancedControls(false);
         }
 
+        if (currentScreen === 'player' && viewportChanged.orientationChanged) {
+            scheduleOrientationHighwayLayoutRefresh();
+        }
+
         if (currentScreen === 'player' && (viewportChanged.deviceChanged || viewportChanged.orientationChanged)) {
             scheduleEnhancement(reclassifyAllControls, 100);
             scheduleEnhancement(reapplyMobileSliderWrapperStyles, 150);
@@ -2225,6 +2229,12 @@
     function scheduleHighwayLayoutRefresh(reason) {
         scheduleEnhancement(refreshHighwayLayout, 50);
         scheduleEnhancement(refreshHighwayLayout, 250);
+    }
+
+    function scheduleOrientationHighwayLayoutRefresh() {
+        scheduleHighwayLayoutRefresh('orientation');
+        scheduleEnhancement(refreshHighwayLayout, 500);
+        scheduleEnhancement(refreshHighwayLayout, 800);
     }
 
     function scheduleHighwayViewChangeRefresh() {
