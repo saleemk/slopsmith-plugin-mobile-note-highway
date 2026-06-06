@@ -1804,11 +1804,11 @@
         
         // Run multiple passes to catch late-injected buttons (plugins load at different times)
         // Pass 1: 100ms - catches early plugins
-        setTimeout(() => reclassifyAllControls(), 100);
+        scheduleEnhancement(reclassifyAllControls, 100);
         // Pass 2: 300ms - catches most plugins
-        setTimeout(() => reclassifyAllControls(), 300);
+        scheduleEnhancement(reclassifyAllControls, 300);
         // Pass 3: 600ms - catches slow plugins
-        setTimeout(() => reclassifyAllControls(), 600);
+        scheduleEnhancement(reclassifyAllControls, 600);
         
         // Create minimalist chevron indicator (floats above controls with bounce animation)
         if (!_ui.swipeIndicator) {
