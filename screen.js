@@ -901,6 +901,11 @@
             toggleAdvancedControls(false);
         }
 
+        if (currentScreen === 'player' && viewportChanged.orientationChanged && _sectionPracticeOpen) {
+            _sectionPracticeOpen = false;
+            applySectionPracticeVisibility();
+        }
+
         if (currentScreen === 'player' && viewportChanged.orientationChanged) {
             scheduleOrientationHighwayLayoutRefresh();
         }

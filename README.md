@@ -16,17 +16,19 @@ A touch-optimized note highway player plugin for [Slopsmith](https://github.com/
 
 <img width="400" alt="Tablet collapsed view" src="https://github.com/user-attachments/assets/e27acd3e-6b04-4901-93d5-869ed30d7918" /> <img width="400" alt="Tablet expanded view" src="https://github.com/user-attachments/assets/b52f36c7-dc12-429c-9fa9-c7cb1e6062c2" />
 
-*Collapsed view includes difficulty and speed sliders. Expanded view reveals full control panel with proper spacing.*
+*Collapsed tablet view includes difficulty and speed sliders, with A/V offset also shown in landscape when space allows. Expanded view uses compact landscape rows where appropriate.*
 
 ## Features
 
 - **Collapsible controls** - Swipe up/down to show/hide advanced tools. Only essentials visible by default.
 - **Organized expanded controls** - Expanded mode groups controls into Playback, Sliders, Practice, Stems, and More controls sections.
-- **Landscape-aware layout** - Expanded landscape mode uses compact rows to preserve highway space.
+- **Landscape-aware layout** - Expanded landscape mode uses compact rows and compact More controls to preserve highway space.
 - **More controls accordion** - Secondary display and plugin actions stay tucked away until needed.
 - **Section Practice disclosure** - Slopsmith's Section Practice bar stays available but collapsed in place on mobile.
 - **Mobile-safe Mixer popover** - Mixer controls are clamped to the viewport on phones and tablets.
 - **Aligned mobile sliders** - Difficulty, speed, and A/V offset use matching labels and touch-friendly tracks.
+- **Tablet landscape Offset slider** - Tablet landscape collapsed mode can show Difficulty, Speed, and A/V Offset together when there is enough width.
+- **Responsive highway resizing** - The highway refreshes after controls resize, orientation changes, and 2D/3D visualization switches to reclaim available space.
 - **Swipe up/down on highway** - Scrub through the song by dragging vertically with live highway preview - matches the natural flow of notes scrolling toward you
 - **Tap to play/pause** - Single tap anywhere on the highway
 - **Double tap to loop** - Set A/B loop markers with double taps (A → B → Clear)
@@ -34,7 +36,7 @@ A touch-optimized note highway player plugin for [Slopsmith](https://github.com/
 
 ## Installation
 
-**Current version: v1.1.3** — Organized expanded controls, More controls accordion, Stems row support, and improved phone/tablet layouts. See [Releases](https://github.com/saleemk/slopsmith-plugin-mobile-note-highway/releases) for full changelog.
+**Current version: v1.1.4** — Adds landscape-optimized mobile layouts, compact More controls, mobile-safe Mixer positioning, improved highway resizing after orientation/visualization changes, and tablet landscape collapsed Offset slider support. See [Releases](https://github.com/saleemk/slopsmith-plugin-mobile-note-highway/releases) for full changelog.
 
 ### Manual Installation
 
@@ -69,6 +71,15 @@ services:
 
 Open any song on your phone or tablet — the plugin activates automatically.
 
+### Mobile browser tip
+
+For the best phone experience, add Slopsmith to your home screen:
+
+- **iPhone Safari:** Share → Add to Home Screen
+- **Android Chrome:** Menu ⋮ → Add to Home screen, or Install app if offered
+
+Launching from the home-screen icon gives Slopsmith a cleaner app-like view with less browser chrome, leaving more room for the note highway and mobile controls.
+
 ### Controls
 
 **Collapsible controls:**
@@ -85,9 +96,12 @@ Open any song on your phone or tablet — the plugin activates automatically.
 - **Drag** → scrub through song with live highway preview and tooltip
 - **Tap** → jump to that position instantly
 
+**Section Practice:**
+- **Tap Section Practice** → show or hide Slopsmith's section practice controls on mobile
+
 **What's visible by default:**
 - **Phone:** Back button, seek buttons, play controls, arrangement selector, default arrangement pin
-- **Tablet:** Back button, seek buttons, play controls, arrangement selector, default arrangement pin, difficulty slider, speed slider
+- **Tablet:** Back button, seek buttons, play controls, arrangement selector, default arrangement pin, difficulty slider, speed slider; in landscape, A/V offset may also appear when there is enough width
 
 **Expanded view:**
 - **Playback:** Back, seek, play/pause, arrangement selector, default pin
@@ -99,7 +113,9 @@ Open any song on your phone or tablet — the plugin activates automatically.
 **Landscape behavior:**
 - Expanded controls use compact horizontal rows to preserve note highway space.
 - More controls content is compacted in landscape while keeping popovers and dropdowns usable.
+- Tablet landscape collapsed mode can include A/V offset alongside Difficulty and Speed when the viewport is wide enough.
 - Rotating while controls are expanded collapses them so the next expand rebuilds the correct layout for the new orientation.
+- The highway refreshes after orientation changes and 2D/3D visualization switches so it reclaims available space.
 
 All gestures show brief visual feedback confirming the action.
 
