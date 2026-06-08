@@ -986,7 +986,42 @@
             btn.removeAttribute('id');
         }
     }
-    
+
+    /**
+     * Check if a control element is a priority control that should stay
+     * at its natural order position (not pushed to CONTROL_ORDER.REST).
+     */
+    function isPriorityControl(el) {
+        return el.id === 'arr-select' ||
+               el.id === 'mobile-back-btn' ||
+               el.id === 'btn-play' ||
+               (el.tagName === 'BUTTON' && el.getAttribute('onclick')?.includes('seekBy('));
+    }
+
+    /**
+     * Find the home/back close button within player controls.
+     */
+    function findHomeCloseButton(controls) {
+        if (!controls) return null;
+        return Array.from(controls.querySelectorAll('button')).find(function(btn) {
+            const onclick = btn.getAttribute('onclick');
+            return onclick && onclick.includes("showScreen('home')");
+        });
+    }
+
+    /**
+     * Apply mobile back-button layout: transform icon, set order, clear
+     * auto margins, apply device/state-sensitive right margin.
+     */
+    function applyMobileBackButtonLayout(btn) {
+        if (!btn) return;
+        transformCloseButton(btn);
+        btn.style.order = CONTROL_ORDER.BACK;
+        btn.classList.remove('ml-auto');
+        btn.style.marginLeft = '0';
+        btn.style.marginRight = _ui.expanded ? '0' : ((DEVICE === 'phone') ? '4px' : '12px');
+    }
+
     // ═══════════════════════════════════════════════════════════════
     // Essential Control Detection
     // ═══════════════════════════════════════════════════════════════
@@ -1778,12 +1813,7 @@
         }
         
         Array.from(controls.children).forEach(el => {
-            const isPriority = el.id === 'arr-select' || 
-                              el.id === 'mobile-back-btn' ||
-                              el.id === 'btn-play' ||
-                              (el.tagName === 'BUTTON' && el.getAttribute('onclick')?.includes('seekBy('));
-            
-            if (!isPriority && !el.id?.startsWith('mobile-')) {
+            if (!isPriorityControl(el) && !el.id?.startsWith('mobile-')) {
                 el.style.order = CONTROL_ORDER.REST;
             }
             
@@ -1837,17 +1867,8 @@
 
         controls.style.position = 'relative';
         
-        const closeButton = Array.from(controls.querySelectorAll('button')).find(btn => {
-            const onclick = btn.getAttribute('onclick');
-            return onclick && onclick.includes("showScreen('home')");
-        });
-        if (closeButton) {
-            transformCloseButton(closeButton);
-            closeButton.style.order = CONTROL_ORDER.BACK;
-            closeButton.classList.remove('ml-auto');
-            closeButton.style.marginLeft = '0';
-            closeButton.style.marginRight = _ui.expanded ? '0' : ((DEVICE === 'phone') ? '4px' : '12px');
-        }
+        const closeButton = findHomeCloseButton(controls);
+        applyMobileBackButtonLayout(closeButton);
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -1921,12 +1942,7 @@
         Array.from(controls.children).forEach(el => {
             if (isHelperElement(el)) return;
             
-            const isPriority = el.id === 'arr-select' || 
-                              el.id === 'mobile-back-btn' ||
-                              el.id === 'btn-play' ||
-                              (el.tagName === 'BUTTON' && el.getAttribute('onclick')?.includes('seekBy('));
-            
-            if (!isPriority && !el.id?.startsWith('mobile-') && !el.style.order) {
+            if (!isPriorityControl(el) && !el.id?.startsWith('mobile-') && !el.style.order) {
                 el.style.order = CONTROL_ORDER.REST;
             }
             
@@ -1950,16 +1966,9 @@
         }
 
         // Ensure close button is transformed into a Back icon at far left (order: -1)
-        const closeButton = Array.from(controls.querySelectorAll('button')).find(btn => {
-            const onclick = btn.getAttribute('onclick');
-            return onclick && onclick.includes("showScreen('home')");
-        });
+        const closeButton = findHomeCloseButton(controls);
         if (closeButton && closeButton.style.order !== CONTROL_ORDER.BACK) {
-            transformCloseButton(closeButton);
-            closeButton.style.order = CONTROL_ORDER.BACK;
-            closeButton.classList.remove('ml-auto');
-            closeButton.style.marginLeft = '0';
-            closeButton.style.marginRight = _ui.expanded ? '0' : ((DEVICE === 'phone') ? '4px' : '12px');
+            applyMobileBackButtonLayout(closeButton);
         }
     }
 
@@ -2110,12 +2119,7 @@
         Array.from(controls.children).forEach(el => {
             if (isHelperElement(el)) return;
             
-            const isPriority = el.id === 'arr-select' || 
-                              el.id === 'mobile-back-btn' ||
-                              el.id === 'btn-play' ||
-                              (el.tagName === 'BUTTON' && el.getAttribute('onclick')?.includes('seekBy('));
-            
-            if (!isPriority && !el.id?.startsWith('mobile-') && !el.style.order) {
+            if (!isPriorityControl(el) && !el.id?.startsWith('mobile-') && !el.style.order) {
                 el.style.order = CONTROL_ORDER.REST;
             }
             
@@ -2142,17 +2146,8 @@
         }
 
         // Transform close button
-        const closeButton = Array.from(controls.querySelectorAll('button')).find(btn => {
-            const onclick = btn.getAttribute('onclick');
-            return onclick && onclick.includes("showScreen('home')");
-        });
-        if (closeButton) {
-            transformCloseButton(closeButton);
-            closeButton.style.order = CONTROL_ORDER.BACK;
-            closeButton.classList.remove('ml-auto');
-            closeButton.style.marginLeft = '0';
-            closeButton.style.marginRight = _ui.expanded ? '0' : ((DEVICE === 'phone') ? '4px' : '12px');
-        }
+        const closeButton = findHomeCloseButton(controls);
+        applyMobileBackButtonLayout(closeButton);
 
         scheduleHighwayLayoutRefresh('controls-toggle');
     }
