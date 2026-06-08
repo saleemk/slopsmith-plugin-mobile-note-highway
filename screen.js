@@ -399,7 +399,7 @@
             header.textContent = 'More controls ' + (open ? '\u25B4' : '\u25BE');
         }
         applyExpandedLandscapeToolsRowsLayout();
-        scheduleHighwayLayoutRefresh('more-controls');
+        scheduleHighwayLayoutRefresh();
     }
 
     function ensureExpandedSectionHeaders(controls) {
@@ -559,7 +559,7 @@
             bar.style.setProperty('display', 'none', 'important');
         }
 
-        scheduleHighwayLayoutRefresh('section-practice');
+        scheduleHighwayLayoutRefresh();
     }
 
     function startSectionPracticeObserver(bar) {
@@ -1029,10 +1029,9 @@
     // ─────────────────────────────────────────────────────────────────
     // Collapsed Visibility (isEssentialControl / hideControl)
     // ─────────────────────────────────────────────────────────────────
-    // Legacy name: isEssentialControl controls collapsed visibility only.
+    // isEssentialControl controls collapsed visibility only.
     // Expanded organization is handled separately by ROW_IDS and
-    // classifyControlForExpandedRow(). isCollapsedVisibleControl() is
-    // an alias available for future migration; call sites not yet migrated.
+    // classifyControlForExpandedRow().
 
     /**
      * Check if an element should remain visible (not hidden in Tools)
@@ -1080,10 +1079,6 @@
         return false;
     }
 
-    function isCollapsedVisibleControl(el) {
-        return isEssentialControl(el);
-    }
-    
     /**
      * Hide a non-essential control element
      * @param {HTMLElement} el - Element to hide
@@ -2149,7 +2144,7 @@
         const closeButton = findHomeCloseButton(controls);
         applyMobileBackButtonLayout(closeButton);
 
-        scheduleHighwayLayoutRefresh('controls-toggle');
+        scheduleHighwayLayoutRefresh();
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -2185,19 +2180,19 @@
         window.dispatchEvent(new Event('resize'));
     }
 
-    function scheduleHighwayLayoutRefresh(reason) {
+    function scheduleHighwayLayoutRefresh() {
         scheduleEnhancement(refreshHighwayLayout, 50);
         scheduleEnhancement(refreshHighwayLayout, 250);
     }
 
     function scheduleOrientationHighwayLayoutRefresh() {
-        scheduleHighwayLayoutRefresh('orientation');
+        scheduleHighwayLayoutRefresh();
         scheduleEnhancement(refreshHighwayLayout, 500);
         scheduleEnhancement(refreshHighwayLayout, 800);
     }
 
     function scheduleHighwayViewChangeRefresh() {
-        scheduleHighwayLayoutRefresh('highway-view-change');
+        scheduleHighwayLayoutRefresh();
         scheduleEnhancement(refreshHighwayLayout, 700);
         scheduleEnhancement(refreshHighwayLayout, 1000);
 
