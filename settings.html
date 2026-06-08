@@ -250,8 +250,13 @@
         
         if (sel) {
             try {
+                const VALID = ['tape_flutter', 'sine', 'sawtooth', 'whitenoise'];
                 const saved = localStorage.getItem('mobile_note_highway.whooshType');
-                sel.value = saved || 'tape_flutter';
+                const normalized = saved && VALID.indexOf(saved) !== -1 ? saved : 'tape_flutter';
+                if (saved !== normalized) {
+                    localStorage.setItem('mobile_note_highway.whooshType', normalized);
+                }
+                sel.value = normalized;
             } catch (_) {
                 sel.value = 'tape_flutter';
             }

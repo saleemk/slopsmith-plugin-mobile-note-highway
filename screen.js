@@ -150,6 +150,12 @@
         return { deviceChanged: deviceChanged, orientationChanged: orientationChanged };
     }
 
+    const VALID_WHOOSH_TYPES = ['tape_flutter', 'sine', 'sawtooth', 'whitenoise'];
+
+    function normalizeWhooshType(type) {
+        return VALID_WHOOSH_TYPES.indexOf(type) !== -1 ? type : 'tape_flutter';
+    }
+
     /**
      * Get current whoosh sound type from localStorage.
      * Configurable via Settings panel.
@@ -157,7 +163,7 @@
      */
     function getWhooshType() {
         try {
-            return localStorage.getItem('mobile_note_highway.whooshType') || 'tape_flutter';
+            return normalizeWhooshType(localStorage.getItem('mobile_note_highway.whooshType') || 'tape_flutter');
         } catch (_) {
             return 'tape_flutter';
         }
@@ -258,10 +264,7 @@
     const _whoosh = {
         context: null,             // AudioContext
         source: null,              // AudioNode (oscillator for motor whir)
-        noiseSource: null,         // BufferSource (for tape hiss layer)
         gain: null,                // GainNode (master volume control)
-        oscillatorGain: null,      // GainNode (oscillator layer volume)
-        noiseGain: null,           // GainNode (noise layer volume)
         filter: null,              // BiquadFilterNode (bandpass for tape speaker)
         noiseBuffer: null,         // AudioBuffer (pre-generated white noise)
         lfo: null,                 // OscillatorNode (tape_flutter LFO)
@@ -269,8 +272,6 @@
         modulatedGain: null,       // GainNode (tape_flutter AM output)
         active: false,             // Is whoosh playing?
         type: null,                // Current sound type
-        sampleForward: null,       // AudioBuffer (forward sample)
-        sampleReverse: null,       // AudioBuffer (reverse sample)
     };
     
     // Controls gesture state (swipe up/down to expand/collapse)
@@ -2670,39 +2671,6 @@
     }
     
     /**
-     * Load optional audio buffers for sample-based whoosh sounds
-     */
-    async function loadSampleBuffers() {
-        if (_whoosh.sampleForward && _whoosh.sampleReverse) {
-            return;
-        }
-        
-        if (!_whoosh.context) {
-            return;
-        }
-        
-        try {
-            const forwardHead = await fetch('static/whoosh_sounds/whoosh_forward.ogg', { method: 'HEAD' });
-            const reverseHead = await fetch('static/whoosh_sounds/whoosh_reverse.ogg', { method: 'HEAD' });
-            
-            if (!forwardHead.ok || !reverseHead.ok) {
-                return;
-            }
-            
-            const forwardResponse = await fetch('static/whoosh_sounds/whoosh_forward.ogg');
-            const reverseResponse = await fetch('static/whoosh_sounds/whoosh_reverse.ogg');
-            
-            const forwardArrayBuffer = await forwardResponse.arrayBuffer();
-            const reverseArrayBuffer = await reverseResponse.arrayBuffer();
-            
-            _whoosh.sampleForward = await _whoosh.context.decodeAudioData(forwardArrayBuffer);
-            _whoosh.sampleReverse = await _whoosh.context.decodeAudioData(reverseArrayBuffer);
-        } catch (err) {
-            // Silent fallback
-        }
-    }
-    
-    /**
      * Start whoosh sound based on velocity
      * @param {number} velocity - Pixels per second (positive = forward, negative = rewind)
      */
@@ -2712,7 +2680,7 @@
         
         // FORCE cleanup of any stale nodes before creating new ones
         // This prevents "cannot call start more than once" errors
-        if (_whoosh.source || _whoosh.noiseSource || _whoosh.gain) {
+        if (_whoosh.source || _whoosh.gain) {
             const wasActive = _whoosh.active;
             _whoosh.active = true; // Temporarily set so stopWhoosh doesn't early-return
             stopWhoosh();
@@ -2738,12 +2706,12 @@
             _whoosh.gain.gain.value = 0.06; // Softer volume
             
             // Create sound source based on type
-            switch (getWhooshType()) {
+            switch (_whoosh.type) {
                 case 'sawtooth':
                 case 'sine':
                     // Oscillator-based sounds
                     _whoosh.source = _whoosh.context.createOscillator();
-                    _whoosh.source.type = getWhooshType();
+                    _whoosh.source.type = _whoosh.type;
                     _whoosh.source.frequency.value = isForward ? 150 : 200;
                     
                     // Filter for sweep effect
@@ -2809,41 +2777,6 @@
                     _whoosh.lfo.start();
                     break;
                     
-                case 'sample':
-                    if (!_whoosh.sampleForward || !_whoosh.sampleReverse) {
-                        loadSampleBuffers();
-                        
-                        _whoosh.source = _whoosh.context.createOscillator();
-                        _whoosh.source.type = 'sine';
-                        _whoosh.source.frequency.value = isForward ? 180 : 250;
-                        
-                        _whoosh.lfo = _whoosh.context.createOscillator();
-                        _whoosh.lfo.type = 'sine';
-                        _whoosh.lfo.frequency.value = 6;
-                        
-                        _whoosh.lfoGain = _whoosh.context.createGain();
-                        _whoosh.lfoGain.gain.value = 0.3;
-                        
-                        _whoosh.modulatedGain = _whoosh.context.createGain();
-                        _whoosh.modulatedGain.gain.value = 0.7;
-                        
-                        _whoosh.lfo.connect(_whoosh.lfoGain);
-                        _whoosh.lfoGain.connect(_whoosh.modulatedGain.gain);
-                        _whoosh.source.connect(_whoosh.modulatedGain);
-                        _whoosh.modulatedGain.connect(_whoosh.gain);
-                        
-                        _whoosh.lfo.start();
-                    } else {
-                        _whoosh.source = _whoosh.context.createBufferSource();
-                        _whoosh.source.buffer = isForward ? _whoosh.sampleForward : _whoosh.sampleReverse;
-                        _whoosh.source.loop = true;
-                        
-                        const absVel = Math.abs(velocity);
-                        _whoosh.source.playbackRate.value = 0.9 + (absVel / 5000) * 0.2;
-                        
-                        _whoosh.source.connect(_whoosh.gain);
-                    }
-                    break;
             }
             
             _whoosh.gain.connect(_whoosh.context.destination);
@@ -2895,33 +2828,6 @@
                     }
                     break;
                     
-                case 'sample':
-                    if (!_whoosh.sampleForward || !_whoosh.sampleReverse) {
-                        // Fall through
-                    } else {
-                        const currentBuffer = _whoosh.source.buffer;
-                        const targetBuffer = isForward ? _whoosh.sampleForward : _whoosh.sampleReverse;
-                        
-                        if (currentBuffer !== targetBuffer && targetBuffer) {
-                            try {
-                                _whoosh.source.stop();
-                            } catch (e) { /* already stopped */ }
-                            _whoosh.source.disconnect();
-                            
-                            _whoosh.source = _whoosh.context.createBufferSource();
-                            _whoosh.source.buffer = targetBuffer;
-                            _whoosh.source.loop = true;
-                            _whoosh.source.connect(_whoosh.gain);
-                            _whoosh.source.start();
-                        }
-                        
-                        if (_whoosh.source.playbackRate) {
-                            const playbackRate = 0.9 + (absVel / 5000) * 0.2;
-                            _whoosh.source.playbackRate.setTargetAtTime(playbackRate, now, 0.05);
-                        }
-                        break;
-                    }
-                    
                 case 'tape_flutter':
                     // Tape warble: adjust base frequency and LFO rate with speed
                     const tapeMin = isForward ? 180 : 250;
@@ -2961,30 +2867,6 @@
         } catch (err) {
             console.warn('[mobile_note_highway] Source cleanup failed:', err);
         }
-        
-        try {
-            if (_whoosh.noiseSource) {
-                try { _whoosh.noiseSource.stop(); } catch (e) { /* already stopped */ }
-                _whoosh.noiseSource.disconnect();
-                _whoosh.noiseSource = null;
-            }
-        } catch (err) {
-            console.warn('[mobile_note_highway] Noise source cleanup failed:', err);
-        }
-        
-        try {
-            if (_whoosh.oscillatorGain) {
-                _whoosh.oscillatorGain.disconnect();
-                _whoosh.oscillatorGain = null;
-            }
-        } catch (err) { /* ignore */ }
-        
-        try {
-            if (_whoosh.noiseGain) {
-                _whoosh.noiseGain.disconnect();
-                _whoosh.noiseGain = null;
-            }
-        } catch (err) { /* ignore */ }
         
         try {
             if (_whoosh.filter) {
@@ -3727,7 +3609,7 @@
 
     window.mnhSetWhooshType = function(type) {
         try {
-            localStorage.setItem('mobile_note_highway.whooshType', type);
+            localStorage.setItem('mobile_note_highway.whooshType', normalizeWhooshType(type));
         } catch (err) {
             console.error('[mobile_note_highway] Failed to save whoosh type:', err);
         }
