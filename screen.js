@@ -60,70 +60,53 @@
 
     /**
      * Per-device styling and behavior config.
-     * Phone values exactly match the pre-refactor hardcoded numbers so phone
-     * behavior is unchanged. Tablet values are scaled up for iPad ergonomics.
+     * Phone behavior is unchanged. Tablet values are scaled up for iPad ergonomics.
      */
     const CONFIG = {
         phone: {
-            // Buttons
             buttonHeight: 44,           // px
             buttonPaddingX: 16,         // px (horizontal padding)
-            // Chevron indicator
             chevronSize: 20,            // px font-size
             chevronSpacerWidth: 30,     // px flex spacer width
-            // Sliders
             sliderTrackHeight: 20,      // px (slider element height inside wrapper)
             sliderWrapperHeight: 44,    // px (column wrapper height)
             sliderLabelFontSize: 9,     // px
             sliderMinWidth: 85,         // px (wider now that back button freed space)
-            // Dropdowns
             selectHeight: 44,           // px (arrangement, HD, 3D highway dropdowns)
             selectWidth: 110,           // px (arrangement dropdown width)
-            // Section map / HUD
             sectionMapHeight: 44,       // px
             playerHudTop: 40,           // px
             highway3dTop: 105,          // px
-            // Gestures
             tapMaxDurationMs: 300,
             tapMaxMovementPx: 10,
             doubleTapWindowMs: 250,
-            // Scrubbing
             scrubTimePerPixel: 0.05,        // 20px = 1 second
             scrubThrottleMs: 100,           // Update audio every 100ms
             scrubMinMovement: 15,           // px - min vertical movement to enter scrub mode
-            // Controls gestures
             swipeVerticalThreshold: 40,
             swipeMaxDurationMs: 500,
             pullToRefreshGuardPx: 10,
         },
         tablet: {
-            // Buttons — same height (per user) but a touch more horizontal padding
             buttonHeight: 44,
             buttonPaddingX: 20,
-            // Chevron — bigger + more breathing room on each side
             chevronSize: 28,
             chevronSpacerWidth: 48,
-            // Sliders — wider and slightly bigger labels
             sliderTrackHeight: 20,
             sliderWrapperHeight: 44,
             sliderLabelFontSize: 11,
             sliderMinWidth: 140,
-            // Dropdowns
             selectHeight: 44,
             selectWidth: 200,           // px (arrangement dropdown width)
-            // Section map / HUD — unchanged for visual consistency
             sectionMapHeight: 44,
             playerHudTop: 40,
             highway3dTop: 105,
-            // Gestures
             tapMaxDurationMs: 300,
             tapMaxMovementPx: 10,
             doubleTapWindowMs: 250,
-            // Scrubbing
             scrubTimePerPixel: 0.05,        // 20px = 1 second
             scrubThrottleMs: 100,           // Update audio every 100ms
             scrubMinMovement: 15,           // px - min vertical movement to enter scrub mode
-            // Controls gestures
             swipeVerticalThreshold: 40,
             swipeMaxDurationMs: 500,
             pullToRefreshGuardPx: 10,
@@ -233,8 +216,8 @@
     
     // UI state and refs
     const _ui = {
-        expanded: false,           // was _toolsExpanded
-        swipeIndicator: null,      // was _swipeIndicator
+        expanded: false,
+        swipeIndicator: null,
     };
 
     // Expanded-only section accordion state
@@ -250,12 +233,12 @@
     
     // Highway gesture state (scrubbing, taps, loop markers)
     const _highway = {
-        gestureStartX: 0,          // was _gestureStartX
-        gestureStartY: 0,          // was _gestureStartY
-        gestureStartTime: 0,       // was _gestureStartTime
-        gestureActive: false,      // was _gestureActive
-        lastTapTime: 0,            // was _lastTapTime
-        loopMarkerState: 'ready',  // was _loopMarkerState ('ready' | 'a-set' | 'b-set')
+        gestureStartX: 0,
+        gestureStartY: 0,
+        gestureStartTime: 0,
+        gestureActive: false,
+        lastTapTime: 0,
+        loopMarkerState: 'ready',  // 'ready' | 'a-set' | 'b-set'
         scrubActive: false,        // Currently scrubbing?
         scrubStartTime: 0,         // Audio time when scrub began
         scrubLastUpdate: 0,        // Timestamp of last audio update (for throttling)
@@ -279,26 +262,26 @@
     
     // Controls gesture state (swipe up/down to expand/collapse)
     const _controls = {
-        gestureStartX: 0,          // was _controlsGestureStartX
-        gestureStartY: 0,          // was _controlsGestureStartY
-        gestureStartTime: 0,       // was _controlsGestureStartTime
-        gestureActive: false,      // was _controlsGestureActive
+        gestureStartX: 0,
+        gestureStartY: 0,
+        gestureStartTime: 0,
+        gestureActive: false,
     };
     
     // Original styles (for restore on cleanup)
     const _restore = {
-        sectionMap: null,          // was _sectionMapOriginalStyles
-        playerHud: null,           // was _playerHudOriginalStyles
-        highway3dOverlay: null,    // was _highway3dOverlayOriginalStyles
+        sectionMap: null,
+        playerHud: null,
+        highway3dOverlay: null,
         sectionPractice: null,
         mixerPopover: null,
     };
     
     // Timers (for cleanup on song change / screen exit)
     const _timers = {
-        pending: [],               // was _pendingTimeouts
-        doubleTap: null,           // was _pendingDoubleTapTimeout
-        resize: null,              // was _resizeTimeout
+        pending: [],
+        doubleTap: null,
+        resize: null,
     };
     
     // Observers (managed by createManagedObserver)
@@ -924,9 +907,6 @@
         }
     }
     
-    /**
-     * Setup resize listener with debouncing
-     */
     function setupResizeListener() {
         window.addEventListener('resize', () => {
             if (_timers.resize) {
@@ -1673,7 +1653,6 @@
             return;
         }
         
-        // Make all buttons touch-friendly with consistent height FIRST
         Array.from(controls.querySelectorAll('button')).forEach(btn => {
             btn.style.setProperty('height', CFG.buttonHeight + 'px', 'important');
             btn.style.setProperty('min-width', CFG.buttonHeight + 'px', 'important');
@@ -1687,7 +1666,6 @@
         Array.from(controls.querySelectorAll('button')).forEach(btn => {
             const onclick = btn.getAttribute('onclick');
             if (onclick && onclick.includes('seekBy(')) {
-                // Find text nodes that aren't already wrapped
                 Array.from(btn.childNodes).forEach(node => {
                     if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
                         const span = document.createElement('span');
@@ -1699,12 +1677,10 @@
             }
         });
         
-        // Hide seek button labels (5s text) on mobile to make them icon-only
         Array.from(controls.querySelectorAll('.seek-label')).forEach(label => {
             label.style.display = 'none';
         });
         
-        // Make sliders bigger (touch target + optional min-width on tablet)
         Array.from(controls.querySelectorAll('input[type="range"]')).forEach(slider => {
             slider.style.minHeight = CFG.buttonHeight + 'px';
             if (CFG.sliderMinWidth > 0) {
@@ -1712,7 +1688,6 @@
             }
         });
         
-        // Make dropdowns touch-friendly (arrangement, HD, 3D highway)
         Array.from(controls.querySelectorAll('select')).forEach(select => {
             select.style.setProperty('height', CFG.selectHeight + 'px', 'important');
             select.style.setProperty('min-height', CFG.selectHeight + 'px', 'important');
@@ -1722,10 +1697,8 @@
         const speedSlider = document.getElementById('speed-slider');
         const speedLabel = document.getElementById('speed-label');
         if (speedSlider && speedLabel && speedSlider.parentElement === controls && speedLabel.parentElement === controls) {
-            // Create wrapper container
             var speedWrapper = createMobileSliderWrapper(WRAPPER_IDS.SPEED);
 
-            // Create label row with static Speed label + separator + value
             var speedLabelRow = createMobileSliderLabelRow();
 
             var speedStaticLabel = document.createElement('span');
@@ -1734,10 +1707,8 @@
             speedStaticLabel.className = 'text-xs text-gray-500 ml-1';
             applyMobileSliderLabelTextStyles(speedStaticLabel);
 
-            // Apply label text styles to existing #speed-label (value element)
             applyMobileSliderLabelTextStyles(speedLabel);
 
-            // Insert wrapper before the slider, build structure
             speedSlider.parentElement.insertBefore(speedWrapper, speedSlider);
             speedWrapper.appendChild(speedLabelRow);
             speedLabelRow.appendChild(speedStaticLabel);
@@ -1745,7 +1716,6 @@
             speedLabelRow.appendChild(speedLabel);
             speedWrapper.appendChild(speedSlider);
 
-            // Apply shared slider input styles
             applyMobileSliderInputBaseStyles(speedSlider);
         }
         
@@ -1758,28 +1728,23 @@
             masteryLabel.parentElement === controls && 
             masteryValue.parentElement === controls) {
             
-            // Create column wrapper
             var masteryWrapper = createMobileSliderWrapper(WRAPPER_IDS.MASTERY);
             
-            // Create horizontal row for label + value
             var masteryLabelRow = createMobileSliderLabelRow();
             
             // Insert wrapper before the label (label comes first in DOM)
             masteryLabel.parentElement.insertBefore(masteryWrapper, masteryLabel);
             
-            // Move elements into structure
             masteryWrapper.appendChild(masteryLabelRow);
             masteryLabelRow.appendChild(masteryLabel);
             masteryLabelRow.appendChild(createMobileSliderSeparator());
             masteryLabelRow.appendChild(masteryValue);
             masteryWrapper.appendChild(masterySlider);
             
-            // Style static and value labels
             masteryLabel.textContent = 'Difficulty';
             applyMobileSliderLabelTextStyles(masteryLabel);
             applyMobileSliderLabelTextStyles(masteryValue);
 
-            // Apply shared slider input styles
             applyMobileSliderInputBaseStyles(masterySlider);
         }
         
@@ -1792,32 +1757,26 @@
             avLabel.parentElement === controls && 
             avValue.parentElement === controls) {
             
-            // Create column wrapper
             var avWrapper = createMobileSliderWrapper(WRAPPER_IDS.AV);
             
-            // Create horizontal row for label + value
             var avLabelRow = createMobileSliderLabelRow();
             
             // Insert wrapper before the label (label comes first in DOM)
             avLabel.parentElement.insertBefore(avWrapper, avLabel);
             
-            // Move elements into structure
             avWrapper.appendChild(avLabelRow);
             avLabelRow.appendChild(avLabel);
             avLabelRow.appendChild(createMobileSliderSeparator());
             avLabelRow.appendChild(avValue);
             avWrapper.appendChild(avSlider);
             
-            // Style static and value labels
             avLabel.textContent = 'Offset';
             applyMobileSliderLabelTextStyles(avLabel);
             applyMobileSliderLabelTextStyles(avValue);
 
-            // Apply shared slider input styles
             applyMobileSliderInputBaseStyles(avSlider);
         }
         
-        // Hide all non-essential controls and set order for non-priority controls
         Array.from(controls.children).forEach(el => {
             const isPriority = el.id === 'arr-select' || 
                               el.id === 'mobile-back-btn' ||
@@ -1833,7 +1792,6 @@
             }
         });
         
-        // Watch for plugin buttons being injected after initial load
         startControlsObserver(controls);
         
         // Run multiple passes to catch late-injected buttons (plugins load at different times)
@@ -1875,13 +1833,10 @@
             controls.appendChild(_ui.swipeIndicator);
         }
         
-        // Apply control order and margins
         applyControlOrder();
 
-        // Ensure controls container has position: relative for absolute positioning
         controls.style.position = 'relative';
         
-        // Find close button and transform into a left-positioned Back icon button
         const closeButton = Array.from(controls.querySelectorAll('button')).find(btn => {
             const onclick = btn.getAttribute('onclick');
             return onclick && onclick.includes("showScreen('home')");
@@ -2708,16 +2663,13 @@
             _whoosh.gain = _whoosh.context.createGain();
             _whoosh.gain.gain.value = 0.06; // Softer volume
             
-            // Create sound source based on type
             switch (_whoosh.type) {
                 case 'sawtooth':
                 case 'sine':
-                    // Oscillator-based sounds
                     _whoosh.source = _whoosh.context.createOscillator();
                     _whoosh.source.type = _whoosh.type;
                     _whoosh.source.frequency.value = isForward ? 150 : 200;
                     
-                    // Filter for sweep effect
                     _whoosh.filter = _whoosh.context.createBiquadFilter();
                     _whoosh.filter.type = 'bandpass';
                     _whoosh.filter.frequency.value = 800;
@@ -2728,7 +2680,6 @@
                     break;
                     
                 case 'whitenoise':
-                    // Noise-based sounds (buffer source)
                     if (!_whoosh.noiseBuffer) {
                         // Generate noise buffer (2 seconds)
                         const bufferSize = _whoosh.context.sampleRate * 2;
@@ -2743,7 +2694,6 @@
                     _whoosh.source.buffer = _whoosh.noiseBuffer;
                     _whoosh.source.loop = true;
                     
-                    // Filter
                     _whoosh.filter = _whoosh.context.createBiquadFilter();
                     _whoosh.filter.type = 'bandpass';
                     _whoosh.filter.frequency.value = 800;
@@ -3492,10 +3442,8 @@
     function init() {
         if (!isMobile() || !getPluginEnabled()) return;
         
-        // Inject CSS classes
         injectMobileStyles();
         
-        // Setup resize listener
         setupResizeListener();
         
         window.slopsmith.on('screen:changed', (e) => {
@@ -3530,10 +3478,8 @@
         const origPlaySong = window.playSong;
         if (origPlaySong) {
             window.playSong = async function(filename, arrangement) {
-                // Cancel any pending enhancements from previous song
                 clearPendingEnhancements();
                 
-                // Stop any active whoosh from previous song/scrubbing
                 stopWhoosh();
 
                 _currentSongHasStems = false;
@@ -3594,7 +3540,6 @@
         }
     }
     
-    // Boot when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
