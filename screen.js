@@ -1,6 +1,9 @@
 (function() {
     'use strict';
-    
+
+    if (window.__slopsmithMobileNoteHighwayInstalled) return;
+    window.__slopsmithMobileNoteHighwayInstalled = true;
+
     /**
      * Mobile Note Highway Plugin
      * 
