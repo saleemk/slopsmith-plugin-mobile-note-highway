@@ -443,9 +443,20 @@
     }
 
     // ── Upstream Section Practice Collapse ──
-    // Section Practice is upstream-owned, lives above #player-controls inside
-    // #player-footer, and MNH collapses it in place. It is not part of ROW_IDS
-    // or More controls. Do not move or redesign its internal layout.
+    // Section Practice is upstream-owned. When core provides its own
+    // pill/control (#section-practice-control / #section-practice-pill),
+    // MNH leaves it alone. Otherwise MNH creates a custom collapsible header
+    // (#mnh-section-practice-header) to toggle the legacy bar in place.
+
+    function hasUpstreamSectionPracticeControl() {
+        var ctrl = document.getElementById('section-practice-control');
+        var pill = document.getElementById('section-practice-pill');
+
+        return !!(
+            (ctrl && ctrl.closest && ctrl.closest('#player-footer, #v3-player-rail')) ||
+            (pill && pill.closest && pill.closest('#section-practice-control'))
+        );
+    }
 
     function findSectionPracticeBar() {
         var bar = document.getElementById('section-practice-bar');
@@ -467,6 +478,11 @@
     }
 
     function ensureSectionPracticeCollapse() {
+        if (hasUpstreamSectionPracticeControl()) {
+            teardownSectionPracticeCollapse();
+            return;
+        }
+
         var bar = findSectionPracticeBar();
         if (!bar) {
             stopSectionPracticeObserver();
@@ -523,6 +539,11 @@
     }
 
     function applySectionPracticeVisibility() {
+        if (hasUpstreamSectionPracticeControl()) {
+            teardownSectionPracticeCollapse();
+            return;
+        }
+
         var bar = findSectionPracticeBar();
         var header = document.getElementById(HELPER_IDS.SECTION_PRACTICE_HEADER);
         if (!bar) {
