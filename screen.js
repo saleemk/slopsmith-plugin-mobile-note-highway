@@ -416,19 +416,21 @@
             header.style.cssText = [
                 'display:inline-flex',
                 'align-items:center',
-                'justify-content:flex-start',
+                'justify-content:center',
                 'gap:6px',
-                'width:calc(100% - 52px)',
-                'height:44px',
-                'min-height:44px',
-                'padding:0 10px',
+                'width:auto',
+                'height:36px',
+                'min-height:36px',
+                'padding:0 12px',
                 'border:1px solid rgba(75,85,99,0.25)',
-                'border-radius:6px',
+                'border-radius:999px',
                 'background:rgba(17,24,39,0.28)',
                 'color:#cbd5e1',
                 'font-size:12px',
                 'font-weight:600',
-                'text-align:left'
+                'white-space:nowrap',
+                'flex:0 0 auto',
+                'text-align:center'
             ].join(';') + ';';
             header.style.order = '360';
             header.addEventListener('click', function(e) {
@@ -1549,19 +1551,19 @@
         var header = document.getElementById(SECTION_HEADER_IDS.PLUGINS);
         if (!header) return;
 
-        if (isLandscapeCompactControlsLayout()) {
-            header.style.width = 'auto';
-            header.style.height = '36px';
-            header.style.minHeight = '36px';
-            header.style.flex = '0 0 auto';
-            header.style.marginBottom = '6px';
-        } else {
-            header.style.width = 'calc(100% - 52px)';
-            header.style.height = '44px';
-            header.style.minHeight = '44px';
-            header.style.flex = '';
-            header.style.marginBottom = '';
-        }
+        header.style.display = 'inline-flex';
+        header.style.alignItems = 'center';
+        header.style.justifyContent = 'center';
+        header.style.gap = '6px';
+        header.style.width = 'auto';
+        header.style.height = '36px';
+        header.style.minHeight = '36px';
+        header.style.padding = '0 12px';
+        header.style.borderRadius = '999px';
+        header.style.whiteSpace = 'nowrap';
+        header.style.flex = '0 0 auto';
+        header.style.textAlign = 'center';
+        header.style.marginBottom = '6px';
     }
 
     function applyExpandedSliderRowStyles(forceExpanded) {
