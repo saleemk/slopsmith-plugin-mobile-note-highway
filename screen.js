@@ -1178,6 +1178,11 @@
         row.style.display = (_currentSongHasStems && hasChildContent) ? 'flex' : 'none';
     }
 
+    function shouldShareStemsAndToolsRow() {
+        var controls = document.getElementById('player-controls');
+        return !!(_ui.expanded && controls && controls.clientWidth >= 720);
+    }
+
     function classifyControlForExpandedRow(el) {
         if (!el || el.nodeType !== Node.ELEMENT_NODE) return ROW_IDS.PLUGINS;
 
@@ -1486,6 +1491,34 @@
         applyExpandedLandscapeToolsRowsLayout();
     }
 
+    function applyStemsToolsSharedRowLayout() {
+        var stemsRow = document.getElementById(ROW_IDS.STEMS);
+        var header = document.getElementById(SECTION_HEADER_IDS.PLUGINS);
+        var shouldShare = shouldShareStemsAndToolsRow();
+
+        if (stemsRow) {
+            if (shouldShare) {
+                stemsRow.style.width = 'auto';
+                stemsRow.style.flex = '0 1 auto';
+                stemsRow.style.minWidth = '0';
+                stemsRow.style.maxWidth = '';
+                stemsRow.style.flexWrap = 'wrap';
+                stemsRow.style.marginRight = '8px';
+            } else {
+                stemsRow.style.width = '100%';
+                stemsRow.style.flex = '';
+                stemsRow.style.minWidth = '';
+                stemsRow.style.maxWidth = '';
+                stemsRow.style.flexWrap = '';
+                stemsRow.style.marginRight = '';
+            }
+        }
+
+        if (header) {
+            header.style.marginLeft = '';
+        }
+    }
+
     function resetExpandedToolsRowLayout(row) {
         if (!row) return;
         row.style.width = '100%';
@@ -1564,6 +1597,7 @@
         header.style.flex = '0 0 auto';
         header.style.textAlign = 'center';
         header.style.marginBottom = '6px';
+        applyStemsToolsSharedRowLayout();
     }
 
     function applyExpandedSliderRowStyles(forceExpanded) {
