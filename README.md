@@ -22,9 +22,10 @@ A touch-optimized note highway player plugin for [Slopsmith](https://github.com/
 
 - **Collapsible controls** - Swipe up/down to show/hide advanced tools. Only essentials visible by default.
 - **Organized expanded controls** - Expanded mode groups controls into Playback, Sliders, Practice, Stems, and More controls sections.
-- **Landscape-aware layout** - Expanded landscape mode uses compact rows and compact More controls to preserve highway space.
-- **More controls accordion** - Secondary display and plugin actions stay tucked away until needed.
-- **Section Practice disclosure** - Slopsmith's Section Practice bar stays available but collapsed in place on mobile.
+- **Landscape-aware layout** - Expanded landscape mode uses compact rows and a compact More Controls pill to preserve highway space.
+- **More Controls pill** - Secondary display and plugin actions stay tucked behind a compact pill in expanded mode.
+- **Wide Stems + More row** - On wider tablet layouts, Stems controls and the More Controls pill share a row to reduce vertical clutter.
+- **Section Practice compatibility** - Uses Slopsmith's upstream Section Practice pill/popover when available, while preserving the legacy mobile fallback on older Slopsmith builds.
 - **Mobile-safe Mixer popover** - Mixer controls are clamped to the viewport on phones and tablets.
 - **Aligned mobile sliders** - Difficulty, speed, and A/V offset use matching labels and touch-friendly tracks.
 - **Tablet landscape Offset slider** - Tablet landscape collapsed mode can show Difficulty, Speed, and A/V Offset together when there is enough width.
@@ -36,7 +37,7 @@ A touch-optimized note highway player plugin for [Slopsmith](https://github.com/
 
 ## Installation
 
-**Current version: v1.1.4** — Adds landscape-optimized mobile layouts, compact More controls, mobile-safe Mixer positioning, improved highway resizing after orientation/visualization changes, and tablet landscape collapsed Offset slider support. See [Releases](https://github.com/saleemk/slopsmith-plugin-mobile-note-highway/releases) for full changelog.
+**Current version: v1.1.5** — Adds upstream Section Practice pill compatibility, a compact More Controls pill, wide-layout Stems + More row polish, and cleanup around whoosh, lifecycle, and control helpers. See [Releases](https://github.com/saleemk/slopsmith-plugin-mobile-note-highway/releases) for full changelog.
 
 ### Manual Installation
 
@@ -97,7 +98,7 @@ Launching from the home-screen icon gives Slopsmith a cleaner app-like view with
 - **Tap** → jump to that position instantly
 
 **Section Practice:**
-- **Tap Section Practice** → show or hide Slopsmith's section practice controls on mobile
+- **Tap Section Practice / Practice pill** → show or hide Slopsmith's section practice controls on mobile
 
 **What's visible by default:**
 - **Phone:** Back button, seek buttons, play controls, arrangement selector, default arrangement pin
@@ -108,11 +109,13 @@ Launching from the home-screen icon gives Slopsmith a cleaner app-like view with
 - **Sliders:** Difficulty, speed, and A/V offset
 - **Practice:** Loop controls, detect, step mode, tuner
 - **Stems:** Stem mixer controls, shown only for stem-format songs
-- **More controls:** Mixer, Lyrics, Simplify, HD, 3D Highway, Save, Tones, Fretboard, and other plugin actions
+- **More Controls pill:** Mixer, Lyrics, Simplify, HD, 3D Highway, Save, Tones, Fretboard, and other plugin actions
 
 **Landscape behavior:**
 - Expanded controls use compact horizontal rows to preserve note highway space.
-- More controls content is compacted in landscape while keeping popovers and dropdowns usable.
+- More Controls always renders as a compact pill in expanded mode.
+- On wider tablet layouts, Stems controls and the More Controls pill share a row; narrow layouts stack them cleanly.
+- More Controls content is compacted in landscape while keeping popovers and dropdowns usable.
 - Tablet landscape collapsed mode can include A/V offset alongside Difficulty and Speed when the viewport is wide enough.
 - Rotating while controls are expanded collapses them so the next expand rebuilds the correct layout for the new orientation.
 - The highway refreshes after orientation changes and 2D/3D visualization switches so it reclaims available space.
@@ -146,6 +149,8 @@ Customize the plugin in **Settings → Mobile Note Highway**:
 
 **Optimized for:** Portrait and landscape mode on phones and tablets.
 
+**Known issue:** In iOS Add to Home Screen / standalone mode, rotating from portrait to landscape can sometimes leave the bottom player controls visually correct but temporarily mis-hit-tested by WebKit. Safari tabs are not affected. Expanding/collapsing controls or interacting with a control usually refreshes the hit targets. A targeted standalone-mode workaround is deferred while the safest fix is evaluated.
+
 The plugin should work on Android devices but has not been tested. If you encounter issues, please open an issue with your device model and browser version.
 
 ## Roadmap
@@ -154,7 +159,7 @@ Future improvements planned:
 
 - **Configurable essential controls** - Let users customize which controls appear in collapsed view
 - ~~**Landscape optimization** - Better layout and spacing for horizontal orientation~~
-- **Expanded view polish** - Continue refining spacing, orientation behavior, and plugin grouping
+- ~~**Expanded view polish** - Continue refining spacing, orientation behavior, and plugin grouping~~
 - ~~**Gesture refinement** - Re-evaluate swipe left/right behavior for better seek control~~
 
 ## Technical notes
@@ -164,7 +169,9 @@ Future improvements planned:
 - Routes expanded controls into functional section rows while keeping collapsed visibility separate
 - Tracks orientation separately from device type so landscape layout can adapt without changing phone/tablet detection
 - Uses song metadata (`highway.getSongInfo().stems`) to show the Stems row only for stem-format songs
-- Provides a More controls accordion for secondary display and plugin actions
+- Provides a compact More Controls pill for secondary display and plugin actions
+- Shares the Stems row with the More Controls pill on wide expanded layouts
+- Defers to upstream Slopsmith Section Practice pill/popover UI when available; older Slopsmith builds keep the plugin's legacy mobile fallback
 - Keeps upstream Section Practice and Mixer UI owned by Slopsmith while applying mobile-safe presentation around them
 - Hooks into `setLoopStart`/`setLoopEnd`/`clearLoop` for gesture sync
 - Web Audio API for scrubbing audio feedback
