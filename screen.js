@@ -940,6 +940,33 @@
                 outline: none !important;
             }
 
+            .mnh-theme-dark-neon .mnh-slider-card {
+                box-sizing: border-box;
+                background: rgba(8,10,24,0.36);
+                outline: 1px solid rgba(96,165,250,0.14);
+                border-radius: 12px;
+                box-shadow:
+                    inset 0 1px 0 rgba(255,255,255,0.04),
+                    0 0 10px rgba(59,130,246,0.08);
+            }
+
+            .mnh-theme-dark-neon .mnh-slider-card span,
+            .mnh-theme-dark-neon .mnh-slider-card label {
+                color: #cbd5e1 !important;
+            }
+
+            .mnh-theme-dark-neon .mnh-slider-card:focus-within {
+                outline-color: rgba(96,165,250,0.36);
+                box-shadow:
+                    inset 0 1px 0 rgba(255,255,255,0.05),
+                    0 0 12px rgba(59,130,246,0.18);
+            }
+
+            .mnh-theme-dark-neon .mnh-slider {
+                accent-color: #60a5fa;
+                filter: drop-shadow(0 0 4px rgba(59,130,246,0.28));
+            }
+
             .mnh-theme-dark-neon .mnh-chip,
             .mnh-theme-dark-neon #mnh-row-stems button {
                 background: rgba(15,23,42,0.86) !important;
@@ -1454,6 +1481,24 @@
         Array.from(controls.querySelectorAll('select')).forEach(function(select) {
             select.classList.add('mnh-select');
         });
+
+        [
+            WRAPPER_IDS.MASTERY,
+            WRAPPER_IDS.SPEED,
+            WRAPPER_IDS.AV
+        ].forEach(function(id) {
+            var wrapper = document.getElementById(id);
+            if (wrapper) wrapper.classList.add('mnh-slider-card');
+        });
+
+        [
+            'mastery-slider',
+            'speed-slider',
+            'player-av-offset-slider'
+        ].forEach(function(id) {
+            var slider = document.getElementById(id);
+            if (slider) slider.classList.add('mnh-slider');
+        });
     }
 
     function removeDarkNeonControlTheme(controls) {
@@ -1461,7 +1506,7 @@
 
         controls.classList.remove('mnh-theme-dark-neon', 'mnh-control-deck');
 
-        controls.querySelectorAll('.mnh-button-primary, .mnh-button-secondary, .mnh-button-active, .mnh-button-disabled, .mnh-chip, .mnh-chip-active, .mnh-more-pill, .mnh-more-pill-open, .mnh-more-tray, .mnh-select').forEach(function(el) {
+        controls.querySelectorAll('.mnh-button-primary, .mnh-button-secondary, .mnh-button-active, .mnh-button-disabled, .mnh-chip, .mnh-chip-active, .mnh-more-pill, .mnh-more-pill-open, .mnh-more-tray, .mnh-select, .mnh-slider-card, .mnh-slider').forEach(function(el) {
             el.classList.remove(
                 'mnh-button-primary',
                 'mnh-button-secondary',
@@ -1472,7 +1517,9 @@
                 'mnh-more-pill',
                 'mnh-more-pill-open',
                 'mnh-more-tray',
-                'mnh-select'
+                'mnh-select',
+                'mnh-slider-card',
+                'mnh-slider'
             );
         });
     }
