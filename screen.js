@@ -870,6 +870,30 @@
                 color: #e5e7eb !important;
             }
 
+            .mnh-theme-dark-neon.mnh-collapsed-deck {
+                background:
+                    linear-gradient(180deg, rgba(15,23,42,0.94), rgba(8,10,24,0.92)) !important;
+                box-shadow:
+                    0 -8px 22px rgba(15,23,42,0.45),
+                    inset 0 1px 0 rgba(96,165,250,0.14) !important;
+                color: #e5e7eb !important;
+            }
+
+            .mnh-theme-dark-neon.mnh-collapsed-deck .mnh-button-primary {
+                background: linear-gradient(180deg, #60a5fa, #3b82f6) !important;
+                border: 1px solid rgba(147,197,253,0.62) !important;
+                box-shadow:
+                    0 0 14px rgba(59,130,246,0.34),
+                    inset 0 1px 0 rgba(255,255,255,0.22) !important;
+                color: #eff6ff !important;
+            }
+
+            .mnh-theme-dark-neon.mnh-collapsed-deck .mnh-button-secondary {
+                background: rgba(15,23,42,0.78) !important;
+                border: 1px solid rgba(96,165,250,0.2) !important;
+                color: #e5e7eb !important;
+            }
+
             .mnh-theme-dark-neon .mnh-section-row {
                 background: rgba(15,23,42,0.34);
                 outline: 1px solid rgba(96,165,250,0.12);
@@ -1460,20 +1484,22 @@
         if (!controls) return;
 
         var themeClass = getThemeClassName(getActiveThemeId());
+        var isExpandedMode = mode === 'expanded';
         controls.classList.add('mnh-themed-controls', themeClass, 'mnh-control-deck');
-        controls.classList.toggle('mnh-expanded-deck', mode === 'expanded');
+        controls.classList.toggle('mnh-expanded-deck', isExpandedMode);
+        controls.classList.toggle('mnh-collapsed-deck', mode === 'collapsed');
 
         Array.from(controls.querySelectorAll('button')).forEach(function(btn) {
             btn.classList.toggle('mnh-button-disabled', !!btn.disabled || btn.getAttribute('aria-disabled') === 'true');
 
             if (btn.id === SECTION_HEADER_IDS.PLUGINS) {
-                btn.classList.add('mnh-more-pill');
+                btn.classList.toggle('mnh-more-pill', isExpandedMode);
                 return;
             }
 
             if (btn.closest && btn.closest('#stems-mixer')) {
-                btn.classList.add('mnh-chip');
-                btn.classList.toggle('mnh-chip-active', btn.getAttribute('aria-pressed') === 'true');
+                btn.classList.toggle('mnh-chip', isExpandedMode);
+                btn.classList.toggle('mnh-chip-active', isExpandedMode && btn.getAttribute('aria-pressed') === 'true');
                 return;
             }
 
@@ -1491,7 +1517,7 @@
         });
 
         Array.from(controls.querySelectorAll('select')).forEach(function(select) {
-            select.classList.add('mnh-select');
+            select.classList.toggle('mnh-select', isExpandedMode || !select.classList.contains('mobile-hidden'));
         });
 
         [
@@ -1500,7 +1526,7 @@
             WRAPPER_IDS.AV
         ].forEach(function(id) {
             var wrapper = document.getElementById(id);
-            if (wrapper) wrapper.classList.add('mnh-slider-card');
+            if (wrapper) wrapper.classList.toggle('mnh-slider-card', isExpandedMode || !wrapper.classList.contains('mobile-hidden'));
         });
 
         [
@@ -1509,7 +1535,7 @@
             'player-av-offset-slider'
         ].forEach(function(id) {
             var slider = document.getElementById(id);
-            if (slider) slider.classList.add('mnh-slider');
+            if (slider) slider.classList.toggle('mnh-slider', isExpandedMode || !slider.classList.contains('mobile-hidden'));
         });
     }
 
@@ -1520,7 +1546,8 @@
             'mnh-themed-controls',
             getThemeClassName(getActiveThemeId()),
             'mnh-control-deck',
-            'mnh-expanded-deck'
+            'mnh-expanded-deck',
+            'mnh-collapsed-deck'
         );
 
         controls.querySelectorAll('.mnh-button-primary, .mnh-button-secondary, .mnh-button-active, .mnh-button-disabled, .mnh-chip, .mnh-chip-active, .mnh-more-pill, .mnh-more-pill-open, .mnh-more-tray, .mnh-select, .mnh-slider-card, .mnh-slider').forEach(function(el) {
@@ -2199,6 +2226,10 @@
         
         const closeButton = findHomeCloseButton(controls);
         applyMobileBackButtonLayout(closeButton);
+
+        if (!_ui.expanded) {
+            applyMobileControlTheme(controls, 'collapsed');
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -2478,6 +2509,10 @@
         // Transform close button
         const closeButton = findHomeCloseButton(controls);
         applyMobileBackButtonLayout(closeButton);
+
+        if (!_ui.expanded) {
+            applyMobileControlTheme(controls, 'collapsed');
+        }
 
         scheduleHighwayLayoutRefresh();
     }
