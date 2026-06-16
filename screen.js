@@ -331,6 +331,8 @@
         SECTION_HEADER: 'mnh-section-header',
     };
 
+    const MNH_THEME_ID = 'dark-neon';
+
     const SECTION_HEADER_IDS = {
         PLUGINS: 'mnh-section-header-plugins',
     };
@@ -1446,10 +1448,20 @@
             className.indexOf('bg-green') !== -1;
     }
 
-    function applyDarkNeonControlTheme(controls) {
+    function getActiveThemeId() {
+        return MNH_THEME_ID;
+    }
+
+    function getThemeClassName(themeId) {
+        return 'mnh-theme-' + themeId;
+    }
+
+    function applyMobileControlTheme(controls, mode) {
         if (!controls) return;
 
-        controls.classList.add('mnh-theme-dark-neon', 'mnh-control-deck');
+        var themeClass = getThemeClassName(getActiveThemeId());
+        controls.classList.add('mnh-themed-controls', themeClass, 'mnh-control-deck');
+        controls.classList.toggle('mnh-expanded-deck', mode === 'expanded');
 
         Array.from(controls.querySelectorAll('button')).forEach(function(btn) {
             btn.classList.toggle('mnh-button-disabled', !!btn.disabled || btn.getAttribute('aria-disabled') === 'true');
@@ -1501,10 +1513,15 @@
         });
     }
 
-    function removeDarkNeonControlTheme(controls) {
+    function removeMobileControlTheme(controls) {
         if (!controls) return;
 
-        controls.classList.remove('mnh-theme-dark-neon', 'mnh-control-deck');
+        controls.classList.remove(
+            'mnh-themed-controls',
+            getThemeClassName(getActiveThemeId()),
+            'mnh-control-deck',
+            'mnh-expanded-deck'
+        );
 
         controls.querySelectorAll('.mnh-button-primary, .mnh-button-secondary, .mnh-button-active, .mnh-button-disabled, .mnh-chip, .mnh-chip-active, .mnh-more-pill, .mnh-more-pill-open, .mnh-more-tray, .mnh-select, .mnh-slider-card, .mnh-slider').forEach(function(el) {
             el.classList.remove(
@@ -1560,11 +1577,11 @@
         applyStemsRowVisibility();
         applyExpandedRowWrapperLayout();
         applyExpandedSliderRowStyles();
-        applyDarkNeonControlTheme(controls);
+        applyMobileControlTheme(controls, 'expanded');
     }
 
     function teardownExpandedControlRows(controls) {
-        removeDarkNeonControlTheme(controls);
+        removeMobileControlTheme(controls);
 
         for (var i = _expandedControlMovedOrder.length - 1; i >= 0; i--) {
             var el = _expandedControlMovedOrder[i];
