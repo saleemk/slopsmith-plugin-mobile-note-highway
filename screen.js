@@ -397,6 +397,7 @@
         if (header) {
             header.setAttribute('aria-expanded', open ? 'true' : 'false');
             header.textContent = 'More controls ' + (open ? '\u25B4' : '\u25BE');
+            header.classList.toggle('mnh-more-pill-open', open);
         }
         applyExpandedLandscapeToolsRowsLayout();
         scheduleHighwayLayoutRefresh();
@@ -410,7 +411,7 @@
             header = document.createElement('button');
             header.id = SECTION_HEADER_IDS.PLUGINS;
             header.type = 'button';
-            header.className = HELPER_CLASSES.SECTION_HEADER;
+            header.className = HELPER_CLASSES.SECTION_HEADER + ' mnh-more-pill';
             header.setAttribute('data-mnh-section-target', ROW_IDS.PLUGINS);
             header.setAttribute('aria-controls', ROW_IDS.PLUGINS);
             header.style.cssText = [
@@ -845,6 +846,71 @@
             /* Higher specificity: must come AFTER .mobile-button to override */
             .mobile-button.mobile-hidden { display: none !important; }
             .mobile-hidden { display: none !important; }
+
+            .mnh-theme-dark-neon.mnh-control-deck {
+                background:
+                    linear-gradient(180deg, rgba(15,23,42,0.98), rgba(8,10,24,0.96)) !important;
+                border-radius: 16px 16px 0 0 !important;
+                box-shadow:
+                    0 -10px 28px rgba(15,23,42,0.55),
+                    inset 0 1px 0 rgba(96,165,250,0.18) !important;
+                color: #e5e7eb !important;
+            }
+
+            .mnh-theme-dark-neon .mnh-section-row {
+                background: rgba(15,23,42,0.34);
+                outline: 1px solid rgba(96,165,250,0.12);
+                border-radius: 12px;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+            }
+
+            .mnh-theme-dark-neon .mnh-button-primary {
+                background: linear-gradient(180deg, #60a5fa, #3b82f6) !important;
+                border: 1px solid rgba(147,197,253,0.7) !important;
+                border-radius: 12px !important;
+                box-shadow:
+                    0 0 18px rgba(59,130,246,0.45),
+                    inset 0 1px 0 rgba(255,255,255,0.28) !important;
+                color: #eff6ff !important;
+                font-weight: 700 !important;
+            }
+
+            .mnh-theme-dark-neon .mnh-button-secondary {
+                background: rgba(15,23,42,0.82) !important;
+                border: 1px solid rgba(96,165,250,0.24) !important;
+                border-radius: 11px !important;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.05) !important;
+                color: #e5e7eb !important;
+            }
+
+            .mnh-theme-dark-neon .mnh-button-secondary:active,
+            .mnh-theme-dark-neon .mnh-more-pill:active {
+                background: rgba(30,41,59,0.96) !important;
+                border-color: rgba(96,165,250,0.45) !important;
+            }
+
+            .mnh-theme-dark-neon .mnh-more-pill {
+                background:
+                    linear-gradient(135deg, rgba(15,23,42,0.92), rgba(30,41,59,0.86)) !important;
+                border: 1px solid rgba(168,85,247,0.32) !important;
+                box-shadow:
+                    0 0 14px rgba(59,130,246,0.16),
+                    inset 0 1px 0 rgba(255,255,255,0.06) !important;
+                color: #e5e7eb !important;
+            }
+
+            .mnh-theme-dark-neon .mnh-more-pill-open {
+                border-color: rgba(96,165,250,0.58) !important;
+                box-shadow:
+                    0 0 18px rgba(59,130,246,0.38),
+                    0 0 10px rgba(168,85,247,0.22),
+                    inset 0 1px 0 rgba(255,255,255,0.08) !important;
+            }
+
+            .mnh-theme-dark-neon .mnh-more-tray {
+                background: rgba(8,10,24,0.54);
+                outline-color: rgba(168,85,247,0.16);
+            }
             
             /* Back button (relocated close button) - icon-only, white triangle */
             #mobile-back-btn .mobile-back-svg {
@@ -1261,9 +1327,47 @@
                 wrapper.style.order = row.order;
                 controls.appendChild(wrapper);
             }
+            wrapper.classList.toggle('mnh-more-tray', row.id === ROW_IDS.FEATURES || row.id === ROW_IDS.PLUGINS);
             wrappers[row.id] = wrapper;
         }
         return wrappers;
+    }
+
+    function applyDarkNeonControlTheme(controls) {
+        if (!controls) return;
+
+        controls.classList.add('mnh-theme-dark-neon', 'mnh-control-deck');
+
+        Array.from(controls.querySelectorAll('button')).forEach(function(btn) {
+            if (btn.id === SECTION_HEADER_IDS.PLUGINS) {
+                btn.classList.add('mnh-more-pill');
+                return;
+            }
+
+            if (btn.id === 'btn-play') {
+                btn.classList.add('mnh-button-primary');
+                btn.classList.remove('mnh-button-secondary');
+                return;
+            }
+
+            btn.classList.add('mnh-button-secondary');
+        });
+    }
+
+    function removeDarkNeonControlTheme(controls) {
+        if (!controls) return;
+
+        controls.classList.remove('mnh-theme-dark-neon', 'mnh-control-deck');
+
+        controls.querySelectorAll('.mnh-button-primary, .mnh-button-secondary, .mnh-more-pill, .mnh-more-pill-open, .mnh-more-tray').forEach(function(el) {
+            el.classList.remove(
+                'mnh-button-primary',
+                'mnh-button-secondary',
+                'mnh-more-pill',
+                'mnh-more-pill-open',
+                'mnh-more-tray'
+            );
+        });
     }
 
     function buildExpandedControlRows(controls) {
@@ -1302,9 +1406,12 @@
         applyStemsRowVisibility();
         applyExpandedRowWrapperLayout();
         applyExpandedSliderRowStyles();
+        applyDarkNeonControlTheme(controls);
     }
 
     function teardownExpandedControlRows(controls) {
+        removeDarkNeonControlTheme(controls);
+
         for (var i = _expandedControlMovedOrder.length - 1; i >= 0; i--) {
             var el = _expandedControlMovedOrder[i];
             var saved = _expandedControlPlacement.get(el);
