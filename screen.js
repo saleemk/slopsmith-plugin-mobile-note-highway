@@ -361,7 +361,18 @@
         return id === HELPER_IDS.SWIPE_INDICATOR ||
                id === HELPER_IDS.END_SPACER ||
                id === HELPER_IDS.SECTION_PRACTICE_HEADER ||
+               isPluginInsertAnchor(element) ||
                isSectionHeaderElement(element);
+    }
+
+    function isPluginInsertAnchor(element) {
+        return !!(
+            element &&
+            element.nodeType === Node.ELEMENT_NODE &&
+            element.tagName === 'SPAN' &&
+            element.classList?.contains('text-gray-700') &&
+            (element.textContent || '').trim() === '|'
+        );
     }
 
     function isSectionHeaderElement(element) {
