@@ -911,6 +911,22 @@
                 background: rgba(8,10,24,0.54);
                 outline-color: rgba(168,85,247,0.16);
             }
+
+            .mnh-theme-dark-neon .mnh-select {
+                background: rgba(15,23,42,0.92) !important;
+                border: 1px solid rgba(96,165,250,0.28) !important;
+                border-radius: 10px !important;
+                box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02) !important;
+                color: #e5e7eb !important;
+            }
+
+            .mnh-theme-dark-neon .mnh-select:focus {
+                border-color: rgba(96,165,250,0.45) !important;
+                box-shadow:
+                    0 0 0 2px rgba(59,130,246,0.18),
+                    inset 0 0 0 1px rgba(255,255,255,0.03) !important;
+                outline: none !important;
+            }
             
             /* Back button (relocated close button) - icon-only, white triangle */
             #mobile-back-btn .mobile-back-svg {
@@ -1352,6 +1368,10 @@
 
             btn.classList.add('mnh-button-secondary');
         });
+
+        Array.from(controls.querySelectorAll('select')).forEach(function(select) {
+            select.classList.add('mnh-select');
+        });
     }
 
     function removeDarkNeonControlTheme(controls) {
@@ -1359,13 +1379,14 @@
 
         controls.classList.remove('mnh-theme-dark-neon', 'mnh-control-deck');
 
-        controls.querySelectorAll('.mnh-button-primary, .mnh-button-secondary, .mnh-more-pill, .mnh-more-pill-open, .mnh-more-tray').forEach(function(el) {
+        controls.querySelectorAll('.mnh-button-primary, .mnh-button-secondary, .mnh-more-pill, .mnh-more-pill-open, .mnh-more-tray, .mnh-select').forEach(function(el) {
             el.classList.remove(
                 'mnh-button-primary',
                 'mnh-button-secondary',
                 'mnh-more-pill',
                 'mnh-more-pill-open',
-                'mnh-more-tray'
+                'mnh-more-tray',
+                'mnh-select'
             );
         });
     }
