@@ -889,8 +889,8 @@
             }
 
             .mnh-theme-dark-neon.mnh-collapsed-deck .mnh-button-secondary {
-                background: rgba(15,23,42,0.78) !important;
-                border: 1px solid rgba(96,165,250,0.2) !important;
+                background: rgba(15,23,42,0.64) !important;
+                border: 1px solid rgba(96,165,250,0.16) !important;
                 color: #e5e7eb !important;
             }
 
@@ -914,10 +914,10 @@
 
             .mnh-theme-dark-neon .mnh-button-secondary,
             .mnh-theme-dark-neon .nd-detect-btn {
-                background: rgba(15,23,42,0.82) !important;
-                border: 1px solid rgba(96,165,250,0.24) !important;
+                background: rgba(15,23,42,0.66) !important;
+                border: 1px solid rgba(96,165,250,0.16) !important;
                 border-radius: 11px !important;
-                box-shadow: inset 0 1px 0 rgba(255,255,255,0.05) !important;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.025) !important;
                 color: #e5e7eb !important;
             }
 
@@ -988,6 +988,32 @@
                     0 0 12px rgba(59,130,246,0.18);
             }
 
+            .mnh-theme-dark-neon .mnh-slider-cluster {
+                background: rgba(8,10,24,0.28);
+                outline: 1px solid rgba(96,165,250,0.10);
+                border-radius: 14px;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.035);
+            }
+
+            .mnh-theme-dark-neon .mnh-slider-cluster .mnh-slider-card {
+                background: transparent;
+                outline: none;
+                box-shadow: none;
+            }
+
+            .mnh-theme-dark-neon .mnh-slider-cluster .mnh-slider-card span,
+            .mnh-theme-dark-neon .mnh-slider-cluster .mnh-slider-card label {
+                color: rgba(203,213,225,0.82) !important;
+                font-size: 9px !important;
+                font-weight: 500 !important;
+            }
+
+            .mnh-theme-dark-neon.mnh-collapsed-deck .mnh-slider-card {
+                background: transparent;
+                outline-color: transparent;
+                box-shadow: none;
+            }
+
             .mnh-theme-dark-neon .mnh-slider {
                 accent-color: #60a5fa;
                 filter: drop-shadow(0 0 4px rgba(59,130,246,0.28));
@@ -995,10 +1021,10 @@
 
             .mnh-theme-dark-neon .mnh-chip,
             .mnh-theme-dark-neon #mnh-row-stems button {
-                background: rgba(15,23,42,0.86) !important;
-                border: 1px solid rgba(96,165,250,0.24) !important;
+                background: rgba(15,23,42,0.68) !important;
+                border: 1px solid rgba(96,165,250,0.16) !important;
                 border-radius: 10px !important;
-                box-shadow: inset 0 1px 0 rgba(255,255,255,0.05) !important;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.025) !important;
                 color: #cbd5e1 !important;
                 font-weight: 650 !important;
             }
@@ -1027,7 +1053,7 @@
 
             .mnh-theme-dark-neon button:disabled,
             .mnh-theme-dark-neon .mnh-button-disabled {
-                opacity: 0.52 !important;
+                opacity: 0.46 !important;
                 background: rgba(15,23,42,0.48) !important;
                 border-color: rgba(148,163,184,0.18) !important;
                 box-shadow: none !important;
@@ -1451,6 +1477,7 @@
                 controls.appendChild(wrapper);
             }
             wrapper.classList.toggle('mnh-more-tray', row.id === ROW_IDS.FEATURES || row.id === ROW_IDS.PLUGINS);
+            wrapper.classList.toggle('mnh-slider-cluster', row.id === ROW_IDS.SLIDERS);
             wrappers[row.id] = wrapper;
         }
         return wrappers;
@@ -1550,7 +1577,7 @@
             'mnh-collapsed-deck'
         );
 
-        controls.querySelectorAll('.mnh-button-primary, .mnh-button-secondary, .mnh-button-active, .mnh-button-disabled, .mnh-chip, .mnh-chip-active, .mnh-more-pill, .mnh-more-pill-open, .mnh-more-tray, .mnh-select, .mnh-slider-card, .mnh-slider').forEach(function(el) {
+        controls.querySelectorAll('.mnh-button-primary, .mnh-button-secondary, .mnh-button-active, .mnh-button-disabled, .mnh-chip, .mnh-chip-active, .mnh-more-pill, .mnh-more-pill-open, .mnh-more-tray, .mnh-select, .mnh-slider-card, .mnh-slider-cluster, .mnh-slider').forEach(function(el) {
             el.classList.remove(
                 'mnh-button-primary',
                 'mnh-button-secondary',
@@ -1563,6 +1590,7 @@
                 'mnh-more-tray',
                 'mnh-select',
                 'mnh-slider-card',
+                'mnh-slider-cluster',
                 'mnh-slider'
             );
         });
