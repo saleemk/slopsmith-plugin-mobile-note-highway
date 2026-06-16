@@ -875,7 +875,8 @@
                 font-weight: 700 !important;
             }
 
-            .mnh-theme-dark-neon .mnh-button-secondary {
+            .mnh-theme-dark-neon .mnh-button-secondary,
+            .mnh-theme-dark-neon .nd-detect-btn {
                 background: rgba(15,23,42,0.82) !important;
                 border: 1px solid rgba(96,165,250,0.24) !important;
                 border-radius: 11px !important;
@@ -926,6 +927,48 @@
                     0 0 0 2px rgba(59,130,246,0.18),
                     inset 0 0 0 1px rgba(255,255,255,0.03) !important;
                 outline: none !important;
+            }
+
+            .mnh-theme-dark-neon .mnh-chip,
+            .mnh-theme-dark-neon #mnh-row-stems button {
+                background: rgba(15,23,42,0.86) !important;
+                border: 1px solid rgba(96,165,250,0.24) !important;
+                border-radius: 10px !important;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.05) !important;
+                color: #cbd5e1 !important;
+                font-weight: 650 !important;
+            }
+
+            .mnh-theme-dark-neon .mnh-chip-active,
+            .mnh-theme-dark-neon #mnh-row-stems button[aria-pressed="true"] {
+                background: linear-gradient(180deg, rgba(59,130,246,0.34), rgba(37,99,235,0.28)) !important;
+                border-color: rgba(96,165,250,0.6) !important;
+                box-shadow:
+                    0 0 12px rgba(59,130,246,0.28),
+                    inset 0 1px 0 rgba(255,255,255,0.11) !important;
+                color: #dbeafe !important;
+            }
+
+            .mnh-theme-dark-neon .mnh-button-active,
+            .mnh-theme-dark-neon .nd-detect-btn[class*="bg-green"] {
+                background: linear-gradient(180deg, rgba(34,197,94,0.42), rgba(21,128,61,0.34)) !important;
+                border: 1px solid rgba(74,222,128,0.58) !important;
+                border-radius: 11px !important;
+                box-shadow:
+                    0 0 16px rgba(34,197,94,0.3),
+                    inset 0 1px 0 rgba(255,255,255,0.12) !important;
+                color: #ecfdf5 !important;
+                font-weight: 700 !important;
+            }
+
+            .mnh-theme-dark-neon button:disabled,
+            .mnh-theme-dark-neon .mnh-button-disabled {
+                opacity: 0.52 !important;
+                background: rgba(15,23,42,0.48) !important;
+                border-color: rgba(148,163,184,0.18) !important;
+                box-shadow: none !important;
+                color: #94a3b8 !important;
+                cursor: not-allowed !important;
             }
             
             /* Back button (relocated close button) - icon-only, white triangle */
@@ -1349,14 +1392,38 @@
         return wrappers;
     }
 
+    function isDetectButton(btn) {
+        if (!btn) return false;
+        if (btn.classList && btn.classList.contains('nd-detect-btn')) return true;
+        return /^detect\b/i.test((btn.textContent || '').trim());
+    }
+
+    function isDetectButtonActive(btn) {
+        if (!btn) return false;
+        var text = (btn.textContent || '').toLowerCase();
+        var className = String(btn.className || '').toLowerCase();
+        return btn.getAttribute('aria-pressed') === 'true' ||
+            text.indexOf('\u2713') !== -1 ||
+            /\b(on|active|enabled|running)\b/.test(text) ||
+            className.indexOf('bg-green') !== -1;
+    }
+
     function applyDarkNeonControlTheme(controls) {
         if (!controls) return;
 
         controls.classList.add('mnh-theme-dark-neon', 'mnh-control-deck');
 
         Array.from(controls.querySelectorAll('button')).forEach(function(btn) {
+            btn.classList.toggle('mnh-button-disabled', !!btn.disabled || btn.getAttribute('aria-disabled') === 'true');
+
             if (btn.id === SECTION_HEADER_IDS.PLUGINS) {
                 btn.classList.add('mnh-more-pill');
+                return;
+            }
+
+            if (btn.closest && btn.closest('#stems-mixer')) {
+                btn.classList.add('mnh-chip');
+                btn.classList.toggle('mnh-chip-active', btn.getAttribute('aria-pressed') === 'true');
                 return;
             }
 
@@ -1364,6 +1431,10 @@
                 btn.classList.add('mnh-button-primary');
                 btn.classList.remove('mnh-button-secondary');
                 return;
+            }
+
+            if (isDetectButton(btn)) {
+                btn.classList.toggle('mnh-button-active', isDetectButtonActive(btn));
             }
 
             btn.classList.add('mnh-button-secondary');
@@ -1379,10 +1450,14 @@
 
         controls.classList.remove('mnh-theme-dark-neon', 'mnh-control-deck');
 
-        controls.querySelectorAll('.mnh-button-primary, .mnh-button-secondary, .mnh-more-pill, .mnh-more-pill-open, .mnh-more-tray, .mnh-select').forEach(function(el) {
+        controls.querySelectorAll('.mnh-button-primary, .mnh-button-secondary, .mnh-button-active, .mnh-button-disabled, .mnh-chip, .mnh-chip-active, .mnh-more-pill, .mnh-more-pill-open, .mnh-more-tray, .mnh-select').forEach(function(el) {
             el.classList.remove(
                 'mnh-button-primary',
                 'mnh-button-secondary',
+                'mnh-button-active',
+                'mnh-button-disabled',
+                'mnh-chip',
+                'mnh-chip-active',
                 'mnh-more-pill',
                 'mnh-more-pill-open',
                 'mnh-more-tray',
