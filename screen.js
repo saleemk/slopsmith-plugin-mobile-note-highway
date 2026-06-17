@@ -999,6 +999,7 @@
                 background: transparent;
                 outline: none;
                 box-shadow: none;
+                justify-content: center !important;
             }
 
             .mnh-theme-dark-neon .mnh-slider-cluster .mnh-slider-card span,
