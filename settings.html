@@ -154,6 +154,16 @@
             <option value="dark-neon">Dark Neon</option>
             <option value="classic-dark">Classic Dark</option>
             <option value="carbon-mint">Carbon Mint</option>
+            <option value="matrix">Matrix</option>
+            <option value="midnight-blue">Midnight Blue</option>
+            <option value="digital-lavender">Lavender Dusk</option>
+            <option value="verdant-green">Forest Moss</option>
+            <option value="sunset">Sunset Glow</option>
+            <option value="mocha-mousse">Mocha</option>
+            <option value="desert-sand">Desert Sand</option>
+            <option value="muted-rose">Rose Dust</option>
+            <option value="corporate-navy">Deep Sea</option>
+            <option value="nordic-slate">Nordic Slate</option>
         </select>
     </div>
     <script>
@@ -170,7 +180,21 @@
         }
         if (themeSelect) {
             try {
-                const validThemes = ['dark-neon', 'classic-dark', 'carbon-mint'];
+                const validThemes = [
+                    'dark-neon',
+                    'classic-dark',
+                    'carbon-mint',
+                    'matrix',
+                    'midnight-blue',
+                    'digital-lavender',
+                    'verdant-green',
+                    'sunset',
+                    'mocha-mousse',
+                    'desert-sand',
+                    'muted-rose',
+                    'corporate-navy',
+                    'nordic-slate'
+                ];
                 const savedTheme = localStorage.getItem('mobile_note_highway.theme');
                 const normalizedTheme = validThemes.indexOf(savedTheme) !== -1 ? savedTheme : 'dark-neon';
                 if (savedTheme && savedTheme !== normalizedTheme) {
