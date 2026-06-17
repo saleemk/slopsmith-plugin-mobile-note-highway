@@ -144,15 +144,41 @@
             <span class="text-sm text-gray-300">Enable mobile optimizations</span>
         </label>
     </div>
+    <div class="mt-4">
+        <label for="mnh-theme" class="text-xs font-medium text-gray-400 mb-1 block">
+            Mobile Note Highway Theme
+        </label>
+        <select id="mnh-theme"
+            onchange="window.mnhSetTheme && window.mnhSetTheme(this.value)"
+            class="w-full bg-dark-700 border border-gray-800 rounded-lg px-3 py-2 text-xs text-gray-300 outline-none">
+            <option value="dark-neon">Dark Neon</option>
+            <option value="classic-dark">Classic Dark</option>
+            <option value="carbon-mint">Carbon Mint</option>
+        </select>
+    </div>
     <script>
     (function () {
         const checkbox = document.getElementById('mnh-plugin-enabled');
+        const themeSelect = document.getElementById('mnh-theme');
         if (checkbox) {
             try {
                 const saved = localStorage.getItem('mobile_note_highway.enabled');
                 checkbox.checked = saved !== 'false'; // default true
             } catch (_) {
                 checkbox.checked = true;
+            }
+        }
+        if (themeSelect) {
+            try {
+                const validThemes = ['dark-neon', 'classic-dark', 'carbon-mint'];
+                const savedTheme = localStorage.getItem('mobile_note_highway.theme');
+                const normalizedTheme = validThemes.indexOf(savedTheme) !== -1 ? savedTheme : 'dark-neon';
+                if (savedTheme && savedTheme !== normalizedTheme) {
+                    localStorage.setItem('mobile_note_highway.theme', normalizedTheme);
+                }
+                themeSelect.value = normalizedTheme;
+            } catch (_) {
+                themeSelect.value = 'dark-neon';
             }
         }
     })();
