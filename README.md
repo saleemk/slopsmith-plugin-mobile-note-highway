@@ -2,7 +2,7 @@
 
 [![GitHub release](https://img.shields.io/github/v/release/saleemk/slopsmith-plugin-mobile-note-highway)](https://github.com/saleemk/slopsmith-plugin-mobile-note-highway/releases)
 
-A touch-optimized note highway player plugin for [Slopsmith](https://github.com/slopsmith/slopsmith) that transforms the player experience on phones and tablets. Collapsible controls, organized expanded sections, landscape-aware layouts, intuitive gestures with live audio feedback, and device-adaptive controls let you focus on playing.
+A touch-optimized note highway player plugin for [Slopsmith](https://github.com/slopsmith/slopsmith) that transforms the player experience on phones and tablets. Collapsible controls, organized expanded sections, landscape-aware layouts, configurable mobile HUD themes, intuitive gestures with live audio feedback, and device-adaptive controls let you focus on playing.
 
 **Tested on iOS phones and tablets in portrait and landscape.** Android should work and likely has native touch feedback, but hasn't been verified.
 
@@ -23,6 +23,8 @@ A touch-optimized note highway player plugin for [Slopsmith](https://github.com/
 - **Collapsible controls** - Swipe up/down to show/hide advanced tools. Only essentials visible by default.
 - **Organized expanded controls** - Expanded mode groups controls into Playback, Sliders, Practice, Stems, and More controls sections.
 - **Landscape-aware layout** - Expanded landscape mode uses compact rows and a compact More Controls pill to preserve highway space.
+- **Configurable mobile HUD themes** - Choose Dark Neon, Classic Dark, Carbon Mint, Matrix, Midnight Blue, Lavender Dusk, Forest Moss, Sunset Glow, Mocha, Desert Sand, Rose Dust, Deep Sea, or Nordic Slate.
+- **Themed expanded and collapsed controls** - Buttons, dropdowns, sliders, Stems chips, active states, disabled states, and More Controls trays share the selected MNH theme.
 - **More Controls pill** - Secondary display and plugin actions stay tucked behind a compact pill in expanded mode.
 - **Wide Stems + More row** - On wider tablet layouts, Stems controls and the More Controls pill share a row to reduce vertical clutter.
 - **Section Practice compatibility** - Uses Slopsmith's upstream Section Practice pill/popover when available, while preserving the legacy mobile fallback on older Slopsmith builds.
@@ -37,7 +39,7 @@ A touch-optimized note highway player plugin for [Slopsmith](https://github.com/
 
 ## Installation
 
-**Current version: v1.1.5** — Adds upstream Section Practice pill compatibility, a compact More Controls pill, wide-layout Stems + More row polish, and cleanup around whoosh, lifecycle, and control helpers. See [Releases](https://github.com/saleemk/slopsmith-plugin-mobile-note-highway/releases) for full changelog.
+**Current version: v1.1.6** — Adds configurable Mobile Note Highway themes, themed expanded and collapsed controls, themed slider fills, and resilient theme refresh for controls that update their classes while playing. See [Releases](https://github.com/saleemk/slopsmith-plugin-mobile-note-highway/releases) for full changelog.
 
 ### Manual Installation
 
@@ -137,6 +139,8 @@ Gesture detection, layout adjustments, and control hiding happen automatically.
 Customize the plugin in **Settings → Mobile Note Highway**:
 
 - **Master switch** - Enable or disable all mobile optimizations without uninstalling the plugin
+- **Mobile Note Highway Theme** - Pick the mobile control theme:
+  - Dark Neon (default), Classic Dark, Carbon Mint, Matrix, Midnight Blue, Lavender Dusk, Forest Moss, Sunset Glow, Mocha, Desert Sand, Rose Dust, Deep Sea, Nordic Slate
 - **Scrub Sensitivity** - Adjust how responsive vertical scrubbing feels (0.5x - 2.0x)
 - **Audio Feedback** - Enable/disable whoosh sound and choose from 4 sound types:
   - `tape_flutter` (default), `sawtooth`, `sine`, `whitenoise`
@@ -171,6 +175,8 @@ Future improvements planned:
 - Uses song metadata (`highway.getSongInfo().stems`) to show the Stems row only for stem-format songs
 - Provides a compact More Controls pill for secondary display and plugin actions
 - Shares the Stems row with the More Controls pill on wide expanded layouts
+- Applies mobile themes through scoped semantic classes so Slopsmith's core UI remains untouched outside MNH controls
+- Uses the selected MNH theme for slider track fills, control buttons, dropdowns, Stems chips, active states, and disabled states
 - Defers to upstream Slopsmith Section Practice pill/popover UI when available; older Slopsmith builds keep the plugin's legacy mobile fallback
 - Keeps upstream Section Practice and Mixer UI owned by Slopsmith while applying mobile-safe presentation around them
 - Hooks into `setLoopStart`/`setLoopEnd`/`clearLoop` for gesture sync
