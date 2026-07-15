@@ -1,3 +1,16 @@
+> [!IMPORTANT]
+> ## This plugin is no longer maintained
+>
+> **Mobile Note Highway was built for Slopsmith and has been superseded by
+> [Mobile UI for fee[dB]ack](https://github.com/saleemk/feedBack-plugin-mobile-ui).**
+>
+> Mobile UI provides the current phone and tablet experience for fee[dB]ack,
+> including touch navigation, responsive Player controls, highway gestures,
+> portrait/landscape layouts, and ongoing compatibility updates.
+>
+> **New users should install Mobile UI instead.**
+
+
 # Mobile Note Highway
 
 [![GitHub release](https://img.shields.io/github/v/release/saleemk/slopsmith-plugin-mobile-note-highway)](https://github.com/saleemk/slopsmith-plugin-mobile-note-highway/releases)
