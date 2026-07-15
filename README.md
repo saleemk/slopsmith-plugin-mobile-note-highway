@@ -10,6 +10,10 @@
 >
 > **New users should install Mobile UI instead.**
 
+## Legacy Slopsmith plugin
+
+This repository is retained for historical reference and existing Slopsmith
+installations. It will not receive new features or compatibility updates.
 
 # Mobile Note Highway
 
